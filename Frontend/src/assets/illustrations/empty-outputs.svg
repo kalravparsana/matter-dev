@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 200" fill="none" role="img">
+  <title>No output agents configured</title>
+  <defs>
+    <linearGradient id="eo-node" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#00C997"/>
+      <stop offset="100%" stop-color="#00B48A"/>
+    </linearGradient>
+    <filter id="eo-shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="3"/>
+      <feOffset dx="0" dy="4" result="offset"/>
+      <feFlood flood-color="#00B48A" flood-opacity="0.12"/>
+      <feComposite in2="offset" operator="in"/>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <radialGradient id="eo-pulse" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#00B48A" stop-opacity="0.15"/>
+      <stop offset="70%" stop-color="#00B48A" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#00B48A" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <!-- Fading signal pulses -->
+  <circle cx="80" cy="100" r="50" fill="url(#eo-pulse)" opacity="0.7"/>
+  <circle cx="80" cy="100" r="35" stroke="#00B48A" stroke-width="1" fill="none" opacity="0.35" stroke-dasharray="3 5"/>
+  <circle cx="80" cy="100" r="22" stroke="#00C997" stroke-width="1" fill="none" opacity="0.25"/>
+  <!-- Ground line -->
+  <line x1="40" y1="155" x2="240" y2="155" stroke="#C8D1DA" stroke-width="1" opacity="0.8"/>
+  <!-- Relay node with outward arrow -->
+  <g filter="url(#eo-shadow)">
+    <circle cx="100" cy="120" r="20" fill="url(#eo-node)" stroke="#C8D1DA" stroke-width="1"/>
+    <circle cx="100" cy="120" r="6" fill="#00B48A"/>
+  </g>
+  <path d="M125 120 H200" stroke="#E8A838" stroke-width="2.5" stroke-linecap="round" opacity="0.85"/>
+  <path d="M192 115 L202 120 L192 125" stroke="#E8A838" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.85"/>
+  <!-- Empty channel dots fading out -->
+  <circle cx="210" cy="120" r="3" fill="#B8C2CE" opacity="0.6"/>
+  <circle cx="230" cy="118" r="2" fill="#B8C2CE" opacity="0.4"/>
+  <circle cx="248" cy="122" r="1.5" fill="#B8C2CE" opacity="0.25"/>
+</svg>

@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 240" fill="none" role="img">
+  <title>No input connections</title>
+  <defs>
+    <linearGradient id="ei-node" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#00C997"/>
+      <stop offset="100%" stop-color="#00B48A"/>
+    </linearGradient>
+    <filter id="ei-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="4" result="blur"/>
+      <feOffset dx="0" dy="3" result="offset"/>
+      <feFlood flood-color="#00B48A" flood-opacity="0.15"/>
+      <feComposite in2="offset" operator="in"/>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <radialGradient id="ei-glow" cx="50%" cy="40%" r="50%">
+      <stop offset="0%" stop-color="#00B48A" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#00B48A" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <ellipse cx="160" cy="120" rx="120" ry="80" fill="url(#ei-glow)"/>
+  <!-- Thread strands -->
+  <path d="M40 80 Q100 60 160 100 T280 90" stroke="#00C997" stroke-width="1.5" fill="none" opacity="0.45" stroke-dasharray="4 6"/>
+  <path d="M50 140 Q120 120 160 150 T270 130" stroke="#00B48A" stroke-width="2" fill="none" opacity="0.55"/>
+  <path d="M60 180 Q130 160 160 180 T260 170" stroke="#00C997" stroke-width="1.5" fill="none" opacity="0.35"/>
+  <!-- Relay nodes -->
+  <g filter="url(#ei-shadow)">
+    <circle cx="70" cy="100" r="14" fill="url(#ei-node)" stroke="#C8D1DA" stroke-width="1"/>
+    <circle cx="160" cy="130" r="16" fill="url(#ei-node)" stroke="#C8D1DA" stroke-width="1"/>
+    <circle cx="250" cy="110" r="14" fill="url(#ei-node)" stroke="#C8D1DA" stroke-width="1"/>
+  </g>
+  <!-- Unlit beacon -->
+  <circle cx="160" cy="130" r="5" fill="#D8DEE8" stroke="#B8C2CE" stroke-width="1"/>
+  <circle cx="160" cy="130" r="2" fill="#B8C2CE" opacity="0.6"/>
+</svg>

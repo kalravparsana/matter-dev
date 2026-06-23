@@ -1,0 +1,8 @@
+[
+  { "ParameterKey": "ProjectName", "ParameterValue": "mattar" },
+  { "ParameterKey": "EnvironmentName", "ParameterValue": "dev" },
+  { "ParameterKey": "LambdaCodeS3Bucket", "ParameterValue": "your-lambda-artifacts-bucket" },
+  { "ParameterKey": "LambdaCodeS3Key", "ParameterValue": "mattar-api/lambda.zip" },
+  { "ParameterKey": "FrontendOrigin", "ParameterValue": "http://localhost:5173" },
+  { "ParameterKey": "OAuthRedirectUri", "ParameterValue": "http://localhost:5173/auth/callback" }
+]

@@ -1,0 +1,251 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Mattar serverless API — API Gateway, Lambda, DynamoDB, Cognito
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: mattar
+  EnvironmentName:
+    Type: String
+    Default: dev
+  LambdaCodeS3Bucket:
+    Type: String
+    Description: S3 bucket containing the Lambda deployment zip (uploaded by deploy.sh Phase A)
+  LambdaCodeS3Key:
+    Type: String
+    Default: mattar-api/lambda.zip
+  FrontendOrigin:
+    Type: String
+    Default: http://localhost:5173
+  OAuthRedirectUri:
+    Type: String
+    Default: http://localhost:5173/auth/callback
+  GoogleClientId:
+    Type: String
+    Default: ''
+    NoEcho: true
+  GoogleClientSecret:
+    Type: String
+    Default: ''
+    NoEcho: true
+
+Resources:
+  MattarTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${ProjectName}-${EnvironmentName}-data'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  CognitoUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub '${ProjectName}-${EnvironmentName}-users'
+      AutoVerifiedAttributes:
+        - email
+      UsernameAttributes:
+        - email
+      Schema:
+        - Name: email
+          Required: true
+          Mutable: true
+
+  CognitoUserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Sub '${ProjectName}-${EnvironmentName}-${AWS::AccountId}'
+      UserPoolId: !Ref CognitoUserPool
+
+  CognitoGoogleIdentityProvider:
+    Type: AWS::Cognito::UserPoolIdentityProvider
+    Properties:
+      ProviderName: Google
+      ProviderType: Google
+      UserPoolId: !Ref CognitoUserPool
+      AttributeMapping:
+        email: email
+        name: name
+        username: sub
+      ProviderDetails:
+        client_id: !Ref GoogleClientId
+        client_secret: !Ref GoogleClientSecret
+        authorize_scopes: openid email profile
+
+  CognitoUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    DependsOn:
+      - CognitoGoogleIdentityProvider
+    Properties:
+      ClientName: !Sub '${ProjectName}-${EnvironmentName}-spa'
+      UserPoolId: !Ref CognitoUserPool
+      GenerateSecret: false
+      AllowedOAuthFlows:
+        - code
+      AllowedOAuthScopes:
+        - openid
+        - email
+        - profile
+      AllowedOAuthFlowsUserPoolClient: true
+      CallbackURLs:
+        - !Ref OAuthRedirectUri
+      LogoutURLs:
+        - !Ref FrontendOrigin
+      SupportedIdentityProviders:
+        - COGNITO
+        - Google
+      ExplicitAuthFlows:
+        - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_USER_SRP_AUTH
+
+  ApiLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ProjectName}-${EnvironmentName}-api-lambda'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: DynamoDBAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:Query
+                Resource: !GetAtt MattarTable.Arn
+
+  ApiLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${ProjectName}-${EnvironmentName}-api'
+      Runtime: nodejs20.x
+      Handler: dist/index.handler
+      Role: !GetAtt ApiLambdaRole.Arn
+      Timeout: 30
+      MemorySize: 512
+      Code:
+        S3Bucket: !Ref LambdaCodeS3Bucket
+        S3Key: !Ref LambdaCodeS3Key
+      Environment:
+        Variables:
+          COGNITO_USER_POOL_ID: !Ref CognitoUserPool
+          COGNITO_CLIENT_ID: !Ref CognitoUserPoolClient
+          COGNITO_REGION: !Ref AWS::Region
+          COGNITO_DOMAIN: !Sub '${CognitoUserPoolDomain}.auth.${AWS::Region}.amazoncognito.com'
+          DYNAMODB_TABLE_NAME: !Ref MattarTable
+          FRONTEND_ORIGIN: !Ref FrontendOrigin
+          OAUTH_REDIRECT_URI: !Ref OAuthRedirectUri
+          OAUTH_STATE_SECRET: !Sub '${ProjectName}-${EnvironmentName}-state'
+          SLACK_REDIRECT_URI: !Sub 'https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com/api/v1/integrations/slack/callback'
+          GMAIL_REDIRECT_URI: !Sub 'https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com/api/v1/integrations/gmail/callback'
+
+  HttpApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub '${ProjectName}-${EnvironmentName}-http-api'
+      ProtocolType: HTTP
+      CorsConfiguration:
+        AllowOrigins:
+          - !Ref FrontendOrigin
+        AllowMethods:
+          - GET
+          - POST
+          - PATCH
+          - DELETE
+          - OPTIONS
+        AllowHeaders:
+          - Content-Type
+          - Authorization
+        MaxAge: 3600
+
+  HttpApiStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref HttpApi
+      StageName: $default
+      AutoDeploy: true
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 200
+        ThrottlingRateLimit: 100
+
+  CognitoAuthorizer:
+    Type: AWS::ApiGatewayV2::Authorizer
+    Properties:
+      ApiId: !Ref HttpApi
+      AuthorizerType: JWT
+      IdentitySource:
+        - $request.header.Authorization
+      Name: CognitoJwtAuthorizer
+      JwtConfiguration:
+        Audience:
+          - !Ref CognitoUserPoolClient
+        Issuer: !Sub 'https://cognito-idp.${AWS::Region}.amazonaws.com/${CognitoUserPool}'
+
+  ApiLambdaIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref HttpApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ApiLambdaFunction.Arn}/invocations'
+      PayloadFormatVersion: '2.0'
+
+  ApiRouteProxy:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: 'ANY /api/v1/{proxy+}'
+      Target: !Sub 'integrations/${ApiLambdaIntegration}'
+      AuthorizationType: NONE
+
+  ApiRouteRoot:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: 'ANY /api/v1'
+      Target: !Sub 'integrations/${ApiLambdaIntegration}'
+      AuthorizationType: NONE
+
+  ApiLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref ApiLambdaFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*'
+
+Outputs:
+  ApiBaseUrl:
+    Description: API Gateway HTTP API base URL
+    Value: !Sub 'https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com'
+  CognitoUserPoolId:
+    Value: !Ref CognitoUserPool
+  CognitoClientId:
+    Value: !Ref CognitoUserPoolClient
+  CognitoDomain:
+    Value: !Sub '${CognitoUserPoolDomain}.auth.${AWS::Region}.amazoncognito.com'
+  DynamoDBTableName:
+    Value: !Ref MattarTable
+  CognitoRegion:
+    Value: !Ref AWS::Region
