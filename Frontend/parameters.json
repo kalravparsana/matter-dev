@@ -1,0 +1,14 @@
+[
+  {
+    "ParameterKey": "EnvironmentName",
+    "ParameterValue": "dev"
+  },
+  {
+    "ParameterKey": "CustomDomainName",
+    "ParameterValue": ""
+  },
+  {
+    "ParameterKey": "AcmCertificateArn",
+    "ParameterValue": ""
+  }
+]

@@ -1,0 +1,18 @@
+[
+  {
+    "ParameterKey": "LambdaCodeS3Bucket",
+    "ParameterValue": "mattar-lambda-artifacts-placeholder"
+  },
+  {
+    "ParameterKey": "LambdaCodeS3Key",
+    "ParameterValue": "mattar-api/lambda.zip"
+  },
+  {
+    "ParameterKey": "EnvironmentName",
+    "ParameterValue": "dev"
+  },
+  {
+    "ParameterKey": "AllowedOrigins",
+    "ParameterValue": "http://localhost:5173"
+  }
+]

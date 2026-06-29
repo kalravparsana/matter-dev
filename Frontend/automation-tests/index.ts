@@ -1,0 +1,16 @@
+import './pages/login.smoke.spec';
+import './pages/login.ui.spec';
+import './pages/login.form.spec';
+import './pages/login.api.spec';
+import './pages/login.error.spec';
+import './pages/login.edge.spec';
+import './pages/login.mobile.spec';
+import './pages/login.accessibility.spec';
+import './pages/today.smoke.spec';
+import './pages/today.ui.spec';
+import './pages/today.form.spec';
+import './pages/today.api.spec';
+import './pages/today.error.spec';
+import './pages/today.edge.spec';
+import './pages/today.mobile.spec';
+import './pages/today.accessibility.spec';
