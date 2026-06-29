@@ -152,3 +152,4 @@ Root `deploy.sh`: Phase A Lambda zip → S3; Phase B backend CFN; Phase C fronte
 | Storage | N/A — no file/image uploads in UI | N/A — no uploads |
 | Database | `backend/src/lib/dynamodb.ts`, `backend/src/services/*.ts` | `AWS::DynamoDB::Table` with stream, GSI1 |
 | Frontend Hosting | `Frontend/cloudformation-template.yaml`, build scripts | `AWS::S3::Bucket`, `AWS::CloudFront::Distribution`, OAC, bucket policy |
+The backend plan
