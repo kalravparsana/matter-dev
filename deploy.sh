@@ -83,6 +83,19 @@ prepare_backend_lambda_artifact() {
   [[ -f "$zip_file" ]] || { echo "Lambda zip was not created. Check package:lambda." >&2; exit 1; }
   aws s3 cp "$zip_file" "s3://${bucket}/${key}"
   rm -f "$zip_file"
+
+  local env_name
+  env_name="$(read_cfn_param "$params" "EnvironmentName")"
+  for fn in "mattar-api-${env_name}" "mattar-stream-${env_name}"; do
+    if aws lambda get-function --function-name "$fn" >/dev/null 2>&1; then
+      echo "Publishing Lambda code to $fn" >&2
+      aws lambda update-function-code \
+        --function-name "$fn" \
+        --s3-bucket "$bucket" \
+        --s3-key "$key" >/dev/null
+      aws lambda wait function-updated-v2 --function-name "$fn"
+    fi
+  done
 }
 
 prepare_backend_artifact() {

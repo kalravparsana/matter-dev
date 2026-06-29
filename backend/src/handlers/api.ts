@@ -85,7 +85,9 @@ export const handler: APIGatewayProxyHandlerV2 = async (
   try {
     let result: APIGatewayProxyResultV2;
 
-    if (matchPath(method, path, '/api/v1/auth/authorize-url', 'GET')) {
+    if (matchPath(method, path, '/health', 'GET')) {
+      result = jsonResponse(200, { status: 'ok' });
+    } else if (matchPath(method, path, '/api/v1/auth/authorize-url', 'GET')) {
       const state = crypto.randomUUID();
       result = jsonResponse(200, { url: buildAuthorizeUrl(config, state), state });
     } else if (matchPath(method, path, '/api/v1/auth/callback', 'GET')) {
