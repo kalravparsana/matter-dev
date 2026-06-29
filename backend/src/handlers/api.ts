@@ -73,10 +73,28 @@ function extractParam(path: string, pattern: string, name: string): string | nul
 export const handler: APIGatewayProxyHandlerV2 = async (
   event,
 ): Promise<APIGatewayProxyResultV2> => {
-  const config = loadConfig();
   const origin = getOrigin(event);
   const method = event.requestContext.http.method;
-  const path = event.rawPath;
+  const path = (event.rawPath ?? '/').replace(/\/$/, '') || '/';
+
+  if (method === 'GET' && path === '/health') {
+    return {
+      statusCode: 200,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'ok' }),
+    };
+  }
+
+  let config: ReturnType<typeof loadConfig>;
+  try {
+    config = loadConfig();
+  } catch (err) {
+    console.error('Configuration error', err);
+    return jsonResponse(503, {
+      error: 'Service is not configured',
+      code: 'CONFIG_ERROR',
+    });
+  }
 
   if (method === 'OPTIONS') {
     return noContentResponse(origin, config.allowedOrigins);
@@ -85,9 +103,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (
   try {
     let result: APIGatewayProxyResultV2;
 
-    if (matchPath(method, path, '/health', 'GET')) {
-      result = jsonResponse(200, { status: 'ok' });
-    } else if (matchPath(method, path, '/api/v1/auth/authorize-url', 'GET')) {
+    if (matchPath(method, path, '/api/v1/auth/authorize-url', 'GET')) {
       const state = crypto.randomUUID();
       result = jsonResponse(200, { url: buildAuthorizeUrl(config, state), state });
     } else if (matchPath(method, path, '/api/v1/auth/callback', 'GET')) {
