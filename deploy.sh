@@ -169,6 +169,49 @@ deploy_cloudformation_layer() {
   )
 }
 
+get_stack_output() {
+  local stack_name="$1"
+  local output_key="$2"
+  aws cloudformation describe-stacks --stack-name "$stack_name" \
+    --query "Stacks[0].Outputs[?OutputKey=='${output_key}'].OutputValue" \
+    --output text 2>/dev/null || true
+}
+
+publish_frontend_bundle() {
+  local api_url bucket dist_id cf_url
+  api_url="$(get_stack_output "$BACKEND_STACK_NAME" ApiBaseUrl)"
+  bucket="$(get_stack_output "$FRONTEND_STACK_NAME" S3BucketName)"
+  dist_id="$(get_stack_output "$FRONTEND_STACK_NAME" DistributionId)"
+  cf_url="$(get_stack_output "$FRONTEND_STACK_NAME" CloudFrontUrl)"
+
+  if [[ -z "$api_url" || "$api_url" == "None" ]]; then
+    echo "Skipping frontend publish — ApiBaseUrl output missing." >&2
+    return 0
+  fi
+  if [[ -z "$bucket" || "$bucket" == "None" ]]; then
+    echo "Skipping frontend publish — S3BucketName output missing." >&2
+    return 0
+  fi
+
+  echo "ApiBaseUrl=${api_url}" >&2
+  echo "HealthCheckUrl=${api_url}/health" >&2
+  [[ -n "$cf_url" && "$cf_url" != "None" ]] && echo "CloudFrontUrl=${cf_url}" >&2
+
+  (
+    cd "$FRONTEND_LAYER_DIR"
+    npm ci --include=dev
+    VITE_API_BASE_URL="$api_url" npm run build
+  )
+
+  aws s3 sync "$FRONTEND_LAYER_DIR/dist/" "s3://${bucket}/" --delete
+
+  if [[ -n "$dist_id" && "$dist_id" != "None" ]]; then
+    aws cloudfront create-invalidation --distribution-id "$dist_id" --paths "/*" >/dev/null
+  fi
+
+  echo "Frontend assets published to s3://${bucket}" >&2
+}
+
 main() {
   if [[ "$INFRA_STACK" == "cloudformation" ]]; then
     prepare_backend_artifact
@@ -178,6 +221,7 @@ main() {
     local frontend_pid=$!
     wait "$backend_pid"
     wait "$frontend_pid"
+    publish_frontend_bundle
   else
     echo "Unsupported INFRA_STACK: $INFRA_STACK" >&2
     exit 1

@@ -70,6 +70,30 @@ function extractParam(path: string, pattern: string, name: string): string | nul
   return idx >= 0 ? match[idx + 1] : null;
 }
 
+async function buildHealthResponse(): Promise<APIGatewayProxyResultV2> {
+  const body: Record<string, string> = { status: 'ok' };
+  const tableName = process.env.MATTAR_TABLE_NAME?.trim();
+
+  if (!tableName) {
+    body.database = 'not_configured';
+  } else {
+    try {
+      const { DynamoDBClient, DescribeTableCommand } = await import('@aws-sdk/client-dynamodb');
+      await new DynamoDBClient({}).send(new DescribeTableCommand({ TableName: tableName }));
+      body.database = 'connected';
+    } catch (err) {
+      console.error('Health database probe failed', err);
+      body.database = 'disconnected';
+    }
+  }
+
+  return {
+    statusCode: 200,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  };
+}
+
 export const handler: APIGatewayProxyHandlerV2 = async (
   event,
 ): Promise<APIGatewayProxyResultV2> => {
@@ -77,12 +101,8 @@ export const handler: APIGatewayProxyHandlerV2 = async (
   const method = event.requestContext.http.method;
   const path = (event.rawPath ?? '/').replace(/\/$/, '') || '/';
 
-  if (method === 'GET' && path === '/health') {
-    return {
-      statusCode: 200,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'ok' }),
-    };
+  if (method === 'GET' && (path === '/health' || path === '/api/health')) {
+    return buildHealthResponse();
   }
 
   let config: ReturnType<typeof loadConfig>;

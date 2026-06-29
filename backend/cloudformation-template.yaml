@@ -142,6 +142,7 @@ Resources:
                   - dynamodb:UpdateItem
                   - dynamodb:Query
                   - dynamodb:DeleteItem
+                  - dynamodb:DescribeTable
                 Resource:
                   - !GetAtt MattarTable.Arn
                   - !Sub ${MattarTable.Arn}/index/*
