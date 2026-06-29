@@ -78,7 +78,7 @@ prepare_backend_lambda_artifact() {
     aws s3 mb "s3://${bucket}"
   fi
 
-  (cd "$ROOT/backend" && npm ci && npm run package:lambda)
+  (cd "$ROOT/backend" && npm ci --include=dev && npm run package:lambda)
   local zip_file="$ROOT/backend/dist-lambda.zip"
   [[ -f "$zip_file" ]] || { echo "Lambda zip was not created. Check package:lambda." >&2; exit 1; }
   aws s3 cp "$zip_file" "s3://${bucket}/${key}"
@@ -119,9 +119,11 @@ deploy_cloudformation_layer() {
       aws cloudformation update-stack \
         --stack-name "$stack_name" \
         --template-body "file://${template}" \
-        "${param_args[@]}" "${cap_args[@]}" || {
+        "${param_args[@]}" "${cap_args[@]}" 2>&1 | tee /tmp/cfn-update-"$stack_name".log || {
           local err=$?
-          if aws cloudformation describe-stacks --stack-name "$stack_name" \
+          if grep -q 'No updates are to be performed' /tmp/cfn-update-"$stack_name".log 2>/dev/null; then
+            echo "No CloudFormation changes for $stack_name" >&2
+          elif aws cloudformation describe-stacks --stack-name "$stack_name" \
             --query 'Stacks[0].StackStatus' --output text 2>/dev/null | grep -q 'IN_PROGRESS'; then
             echo "Stack update already in progress for $stack_name" >&2
           else
@@ -129,10 +131,15 @@ deploy_cloudformation_layer() {
             exit $err
           fi
         }
-      aws cloudformation wait stack-update-complete --stack-name "$stack_name" || {
-        log_stack_failure_events "$stack_name"
-        exit 1
-      }
+      local stack_status
+      stack_status="$(aws cloudformation describe-stacks --stack-name "$stack_name" \
+        --query 'Stacks[0].StackStatus' --output text 2>/dev/null || echo "UNKNOWN")"
+      if [[ "$stack_status" == *"_IN_PROGRESS" ]]; then
+        aws cloudformation wait stack-update-complete --stack-name "$stack_name" || {
+          log_stack_failure_events "$stack_name"
+          exit 1
+        }
+      fi
     else
       aws cloudformation create-stack \
         --stack-name "$stack_name" \

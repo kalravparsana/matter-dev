@@ -92,6 +92,7 @@ Resources:
 
   CognitoUserPoolClient:
     Type: AWS::Cognito::UserPoolClient
+    DependsOn: CognitoGoogleIdentityProvider
     Properties:
       ClientName: !Sub mattar-web-${EnvironmentName}
       UserPoolId: !Ref CognitoUserPool
@@ -107,9 +108,11 @@ Resources:
         - http://localhost:5173/auth/callback
       LogoutURLs:
         - http://localhost:5173/login
-      SupportedIdentityProviders:
-        - COGNITO
-        - Google
+      SupportedIdentityProviders: !If
+        - HasGoogleCredentials
+        - - COGNITO
+          - Google
+        - - COGNITO
       ExplicitAuthFlows:
         - ALLOW_REFRESH_TOKEN_AUTH
         - ALLOW_USER_SRP_AUTH
