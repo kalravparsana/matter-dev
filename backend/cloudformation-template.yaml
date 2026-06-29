@@ -8,6 +8,12 @@ Parameters:
   AllowedOrigins:
     Type: String
     Default: http://localhost:5173
+  OAuthRedirectUri:
+    Type: String
+    Default: http://localhost:5173/auth/callback
+  LogoutRedirectUri:
+    Type: String
+    Default: http://localhost:5173/login
   LambdaCodeS3Bucket:
     Type: String
     Description: S3 bucket containing the Lambda deployment package
@@ -19,6 +25,18 @@ Parameters:
     Default: ''
     NoEcho: true
   GoogleClientSecret:
+    Type: String
+    Default: ''
+    NoEcho: true
+  SlackClientId:
+    Type: String
+    Default: ''
+    NoEcho: true
+  SlackClientSecret:
+    Type: String
+    Default: ''
+    NoEcho: true
+  SlackSigningSecret:
     Type: String
     Default: ''
     NoEcho: true
@@ -92,6 +110,8 @@ Resources:
 
   CognitoUserPoolClient:
     Type: AWS::Cognito::UserPoolClient
+    DependsOn:
+      - CognitoGoogleIdentityProvider
     Properties:
       ClientName: !Sub mattar-web-${EnvironmentName}
       UserPoolId: !Ref CognitoUserPool
@@ -104,12 +124,14 @@ Resources:
         - profile
       AllowedOAuthFlowsUserPoolClient: true
       CallbackURLs:
-        - http://localhost:5173/auth/callback
+        - !Ref OAuthRedirectUri
       LogoutURLs:
-        - http://localhost:5173/login
+        - !Ref LogoutRedirectUri
       SupportedIdentityProviders:
-        - COGNITO
-        - Google
+        !If
+          - HasGoogleCredentials
+          - - Google
+          - - COGNITO
       ExplicitAuthFlows:
         - ALLOW_REFRESH_TOKEN_AUTH
         - ALLOW_USER_SRP_AUTH
@@ -188,8 +210,16 @@ Resources:
           COGNITO_CLIENT_ID: !Ref CognitoUserPoolClient
           COGNITO_REGION: !Ref AWS::Region
           COGNITO_DOMAIN: !Sub mattar-${EnvironmentName}-${AWS::AccountId}.auth.${AWS::Region}.amazoncognito.com
-          OAUTH_REDIRECT_URI: http://localhost:5173/auth/callback
+          OAUTH_REDIRECT_URI: !Ref OAuthRedirectUri
           ALLOWED_ORIGINS: !Ref AllowedOrigins
+          API_BASE_URL: !Sub https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com
+          GOOGLE_OAUTH_CLIENT_ID: !Ref GoogleClientId
+          GOOGLE_OAUTH_CLIENT_SECRET: !Ref GoogleClientSecret
+          GMAIL_OAUTH_REDIRECT_URI: !Sub https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com/api/v1/oauth/gmail/callback
+          SLACK_CLIENT_ID: !Ref SlackClientId
+          SLACK_CLIENT_SECRET: !Ref SlackClientSecret
+          SLACK_SIGNING_SECRET: !Ref SlackSigningSecret
+          SLACK_OAUTH_REDIRECT_URI: !Sub https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com/api/v1/oauth/slack/callback
 
   StreamProcessorFunction:
     Type: AWS::Lambda::Function

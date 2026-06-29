@@ -41,33 +41,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
 
     const restoreSession = async () => {
-      const stored = readStoredSession();
-      if (stored) {
-        if (!cancelled) setSession(stored);
+      if (!isApiConfigured()) {
+        clearStoredSession();
         if (!cancelled) setIsLoading(false);
         return;
       }
 
-      if (isApiConfigured() && readStoredTokens()?.idToken) {
-        try {
-          const profile = await apiFetch<
-            Omit<AuthSession, 'loggedInAt' | 'provider'> & { provider?: string }
-          >('/api/v1/auth/session');
-          const session: AuthSession = {
-            email: profile.email,
-            fullName: profile.fullName,
-            firstName: profile.firstName,
-            initials: profile.initials,
-            workspace: profile.workspace,
-            role: profile.role,
-            loggedInAt: new Date().toISOString(),
-            provider: 'google',
-          };
-          persistSession(session);
-          if (!cancelled) setSession(session);
-        } catch {
-          clearStoredSession();
-        }
+      const tokens = readStoredTokens();
+      if (!tokens?.idToken) {
+        clearStoredSession();
+        if (!cancelled) setIsLoading(false);
+        return;
+      }
+
+      try {
+        const profile = await apiFetch<
+          Omit<AuthSession, 'loggedInAt' | 'provider'> & { provider?: string }
+        >('/api/v1/auth/session');
+        const session: AuthSession = {
+          email: profile.email,
+          fullName: profile.fullName,
+          firstName: profile.firstName,
+          initials: profile.initials,
+          workspace: profile.workspace,
+          role: profile.role,
+          loggedInAt: new Date().toISOString(),
+          provider: 'google',
+        };
+        persistSession(session);
+        if (!cancelled) setSession(session);
+      } catch {
+        clearStoredSession();
       }
 
       if (!cancelled) setIsLoading(false);
@@ -86,6 +90,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     if ('pending' in result && result.pending) {
       return { ok: true as const, pending: true };
+    }
+
+    if (!result.session) {
+      return { ok: false, error: 'Sign-in did not return a session' };
     }
 
     persistSession(result.session);

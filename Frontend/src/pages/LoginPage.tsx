@@ -94,13 +94,13 @@ export default function LoginPage() {
             <GoogleSignInButton
               onClick={handleGoogleSignIn}
               loading={submitting}
-              disabled={isLoading}
+              disabled={isLoading || !googleConfigured}
             />
 
             <p className="font-sans text-xs leading-relaxed text-muted-foreground">
               {googleConfigured
                 ? 'Only @meridian.io Google accounts can access this workspace.'
-                : `Preview mode: Continue with Google signs you in as ${workspaceUser.fullName}. Set VITE_COGNITO_DOMAIN and VITE_API_BASE_URL for live Cognito OAuth.`}
+                : 'Sign-in requires Cognito OAuth and API configuration. Deploy the backend and frontend stacks, or set VITE_API_BASE_URL, VITE_COGNITO_DOMAIN, VITE_COGNITO_CLIENT_ID, and VITE_OAUTH_REDIRECT_URI in your environment.'}
             </p>
           </div>
         </div>

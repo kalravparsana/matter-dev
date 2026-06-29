@@ -14,5 +14,13 @@
   {
     "ParameterKey": "AllowedOrigins",
     "ParameterValue": "http://localhost:5173"
+  },
+  {
+    "ParameterKey": "OAuthRedirectUri",
+    "ParameterValue": "http://localhost:5173/auth/callback"
+  },
+  {
+    "ParameterKey": "LogoutRedirectUri",
+    "ParameterValue": "http://localhost:5173/login"
   }
 ]

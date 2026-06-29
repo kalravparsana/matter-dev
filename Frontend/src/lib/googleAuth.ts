@@ -1,8 +1,4 @@
-import {
-  createDemoGoogleSession,
-  createSessionFromGoogleProfile,
-  type AuthSession,
-} from '@/lib/auth';
+import { createSessionFromGoogleProfile, type AuthSession } from '@/lib/auth';
 
 const GOOGLE_SCRIPT_ID = 'google-gsi-client';
 const GOOGLE_SCRIPT_SRC = 'https://accounts.google.com/gsi/client';
@@ -105,8 +101,10 @@ export async function signInWithGoogle(): Promise<SignInResult> {
   const clientId = getGoogleClientId();
 
   if (!clientId) {
-    await new Promise((r) => setTimeout(r, 600));
-    return { ok: true, session: createDemoGoogleSession() };
+    return {
+      ok: false,
+      error: 'Google sign-in is not configured. Set VITE_GOOGLE_CLIENT_ID or use Cognito OAuth.',
+    };
   }
 
   try {

@@ -95,3 +95,5 @@ Outputs:
     Value: !Ref FrontendBucket
   DistributionId:
     Value: !Ref FrontendDistribution
+  CloudFrontDistributionId:
+    Value: !Ref FrontendDistribution

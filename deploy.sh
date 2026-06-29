@@ -44,6 +44,44 @@ patch_cfn_param() {
   " "$key" "$value" "$params_file"
 }
 
+patch_dotenv_key() {
+  local env_file="$1"
+  local key="$2"
+  local value="$3"
+  node -e "
+    const fs = require('fs');
+    const [key, value, file] = process.argv.slice(1);
+    let text = '';
+    try { text = fs.readFileSync(file, 'utf8'); } catch { text = ''; }
+    const line = key + '=' + value;
+    const pattern = new RegExp('^' + key.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&') + '=.*$', 'm');
+    text = pattern.test(text) ? text.replace(pattern, line) : (text.trimEnd() + (text.endsWith('\\n') || !text ? '' : '\\n') + line + '\\n');
+    fs.writeFileSync(file, text);
+  " "$key" "$value" "$env_file"
+}
+
+read_cfn_stack_output() {
+  local stack_name="$1"
+  local output_key="$2"
+  aws cloudformation describe-stacks --stack-name "$stack_name" \
+    --query "Stacks[0].Outputs[?OutputKey=='${output_key}'].OutputValue | [0]" \
+    --output text 2>/dev/null | sed 's/^None$//' || true
+}
+
+read_stack_output_with_fallbacks() {
+  local stack_name="$1"
+  shift
+  local key value
+  for key in "$@"; do
+    value="$(read_cfn_stack_output "$stack_name" "$key")"
+    if [[ -n "$value" && "$value" != "None" ]]; then
+      printf '%s' "$value"
+      return 0
+    fi
+  done
+  return 1
+}
+
 log_stack_failure_events() {
   local stack_name="$1"
   echo "CloudFormation failure events for stack: $stack_name" >&2
@@ -149,6 +187,103 @@ deploy_cloudformation_layer() {
   )
 }
 
+resolve_frontend_build_dir() {
+  local ui_root="$1"
+  if [[ -d "$ui_root/dist" ]]; then
+    printf '%s' "$ui_root/dist"
+  elif [[ -d "$ui_root/build" ]]; then
+    printf '%s' "$ui_root/build"
+  else
+    printf '%s' "$ui_root/dist"
+  fi
+}
+
+sync_backend_auth_with_frontend() {
+  echo "[step] Syncing backend OAuth redirect and CORS with frontend URL…" >&2
+  local frontend_url
+  frontend_url="$(read_stack_output_with_fallbacks "$FRONTEND_STACK_NAME" \
+    CloudFrontUrl || true)"
+  [[ -n "$frontend_url" ]] || {
+    echo "Frontend CloudFrontUrl output is missing; skipping backend auth sync." >&2
+    return 0
+  }
+
+  local oauth_redirect="${frontend_url%/}/auth/callback"
+  local logout_redirect="${frontend_url%/}/login"
+  local allowed_origins="${frontend_url},http://localhost:5173"
+
+  patch_cfn_param "$ROOT/backend/parameters.json" "OAuthRedirectUri" "$oauth_redirect"
+  patch_cfn_param "$ROOT/backend/parameters.json" "LogoutRedirectUri" "$logout_redirect"
+  patch_cfn_param "$ROOT/backend/parameters.json" "AllowedOrigins" "$allowed_origins"
+
+  deploy_cloudformation_layer "$ROOT/backend" "$BACKEND_STACK_NAME"
+}
+
+publish_frontend_assets() {
+  echo "[step] Publishing frontend assets (Phase D)…" >&2
+
+  local api_url cognito_pool_id cognito_client_id cognito_region cognito_domain frontend_url
+  api_url="$(read_stack_output_with_fallbacks "$BACKEND_STACK_NAME" ApiBaseUrl || true)"
+  cognito_pool_id="$(read_stack_output_with_fallbacks "$BACKEND_STACK_NAME" CognitoUserPoolId || true)"
+  cognito_client_id="$(read_stack_output_with_fallbacks "$BACKEND_STACK_NAME" CognitoClientId || true)"
+  cognito_region="$(read_stack_output_with_fallbacks "$BACKEND_STACK_NAME" CognitoRegion || true)"
+  cognito_domain="$(read_stack_output_with_fallbacks "$BACKEND_STACK_NAME" CognitoDomain || true)"
+  frontend_url="$(read_stack_output_with_fallbacks "$FRONTEND_STACK_NAME" CloudFrontUrl || true)"
+
+  local ui_env="$FRONTEND_LAYER_DIR/.env"
+  touch "$ui_env"
+
+  if [[ -n "$api_url" ]]; then
+    patch_dotenv_key "$ui_env" "VITE_API_BASE_URL" "$api_url"
+  fi
+  if [[ -n "$cognito_pool_id" ]]; then
+    patch_dotenv_key "$ui_env" "VITE_COGNITO_USER_POOL_ID" "$cognito_pool_id"
+  fi
+  if [[ -n "$cognito_client_id" ]]; then
+    patch_dotenv_key "$ui_env" "VITE_COGNITO_CLIENT_ID" "$cognito_client_id"
+  fi
+  if [[ -n "$cognito_region" ]]; then
+    patch_dotenv_key "$ui_env" "VITE_COGNITO_REGION" "$cognito_region"
+  fi
+  if [[ -n "$cognito_domain" ]]; then
+    patch_dotenv_key "$ui_env" "VITE_COGNITO_DOMAIN" "$cognito_domain"
+  fi
+  if [[ -n "$frontend_url" ]]; then
+    patch_dotenv_key "$ui_env" "VITE_OAUTH_REDIRECT_URI" "${frontend_url%/}/auth/callback"
+  fi
+
+  local bucket distribution_id
+  bucket="$(read_stack_output_with_fallbacks "$FRONTEND_STACK_NAME" \
+    S3BucketName || true)"
+  distribution_id="$(read_stack_output_with_fallbacks "$FRONTEND_STACK_NAME" \
+    CloudFrontDistributionId DistributionId || true)"
+
+  if [[ -z "$bucket" ]]; then
+    echo "Frontend stack is missing the S3 bucket output." >&2
+    exit 1
+  fi
+  if [[ -z "$distribution_id" ]]; then
+    echo "Frontend stack is missing the CloudFront distribution id output." >&2
+    exit 1
+  fi
+
+  (cd "$FRONTEND_LAYER_DIR" && npm ci && npm run build)
+
+  local build_dir
+  build_dir="$(resolve_frontend_build_dir "$FRONTEND_LAYER_DIR")"
+  [[ -d "$build_dir" ]] || { echo "Build output folder not found after npm run build." >&2; exit 1; }
+
+  aws s3 sync "$build_dir/" "s3://${bucket}/" --delete
+
+  local invalidation_id
+  invalidation_id="$(aws cloudfront create-invalidation \
+    --distribution-id "$distribution_id" \
+    --paths "/*" \
+    --query 'Invalidation.Id' \
+    --output text)"
+  echo "[step] CloudFront invalidation started: ${invalidation_id}" >&2
+}
+
 main() {
   if [[ "$INFRA_STACK" == "cloudformation" ]]; then
     prepare_backend_artifact
@@ -158,6 +293,8 @@ main() {
     local frontend_pid=$!
     wait "$backend_pid"
     wait "$frontend_pid"
+    sync_backend_auth_with_frontend
+    publish_frontend_assets
   else
     echo "Unsupported INFRA_STACK: $INFRA_STACK" >&2
     exit 1

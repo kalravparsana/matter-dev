@@ -3,11 +3,9 @@ import {
   getApiBaseUrl,
   persistSession,
   persistTokens,
-  readStoredSession,
   type AuthSession,
   type StoredTokens,
 } from '@/lib/api';
-import { createDemoGoogleSession } from '@/lib/auth';
 
 function getCognitoDomain(): string | undefined {
   return import.meta.env.VITE_COGNITO_DOMAIN?.trim() || undefined;
@@ -26,19 +24,19 @@ export function isCognitoConfigured(): boolean {
 }
 
 export function isGoogleAuthConfigured(): boolean {
-  return isCognitoConfigured() || Boolean(getApiBaseUrl());
+  return isCognitoConfigured() && Boolean(getApiBaseUrl());
 }
 
 type SignInResult =
-  | { ok: true; session: AuthSession; pending?: boolean }
+  | { ok: true; session?: AuthSession; pending?: boolean }
   | { ok: false; error: string };
 
+const AUTH_NOT_CONFIGURED_ERROR =
+  'Sign-in is not configured. Set VITE_API_BASE_URL, VITE_COGNITO_DOMAIN, VITE_COGNITO_CLIENT_ID, and VITE_OAUTH_REDIRECT_URI.';
+
 export async function signInWithGoogle(): Promise<SignInResult> {
-  if (!isCognitoConfigured() || !getApiBaseUrl()) {
-    await new Promise((r) => setTimeout(r, 600));
-    const session = createDemoGoogleSession();
-    persistSession(session);
-    return { ok: true, session };
+  if (!isGoogleAuthConfigured()) {
+    return { ok: false, error: AUTH_NOT_CONFIGURED_ERROR };
   }
 
   try {
@@ -47,7 +45,7 @@ export async function signInWithGoogle(): Promise<SignInResult> {
     );
     sessionStorage.setItem('mattar_oauth_state', url);
     window.location.href = url;
-    return { ok: true, session: readStoredSession() ?? createDemoGoogleSession(), pending: true };
+    return { ok: true, pending: true };
   } catch (err) {
     return {
       ok: false,

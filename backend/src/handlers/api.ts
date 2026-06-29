@@ -13,6 +13,7 @@ import {
 } from '../lib/cognito.js';
 import { AppError, toErrorResponse } from '../lib/errors.js';
 import { corsHeaders, jsonResponse, noContentResponse, withCors } from '../lib/response.js';
+import { verifySlackRequestSignature } from '../lib/slack.js';
 import {
   buildGmailAuthorizeUrl,
   buildSlackAuthorizeUrl,
@@ -50,6 +51,14 @@ async function requireUser(event: APIGatewayProxyEventV2, config: ReturnType<typ
     throw new AppError('Please sign in to continue', 401, 'UNAUTHORIZED');
   }
   return verifyCognitoToken(token, config);
+}
+
+function requireWebhookUserSub(userSub: string | undefined): string {
+  const normalized = userSub?.trim();
+  if (!normalized || normalized === 'demo-user') {
+    throw new AppError('Authenticated user is required for webhooks', 401, 'UNAUTHORIZED');
+  }
+  return normalized;
 }
 
 function matchPath(method: string, path: string, pattern: string, httpMethod: string): boolean {
@@ -95,6 +104,14 @@ export const handler: APIGatewayProxyHandlerV2 = async (
       result = jsonResponse(200, tokens);
     } else if (matchPath(method, path, '/api/v1/auth/session', 'GET')) {
       const user = await requireUser(event, config);
+      const email = user.email.trim().toLowerCase();
+      if (!email.endsWith('@meridian.io')) {
+        throw new AppError(
+          'Sign in with your Meridian Google Workspace account to continue',
+          403,
+          'FORBIDDEN_DOMAIN',
+        );
+      }
       const givenName = user.givenName ?? user.name.split(/\s+/)[0] ?? 'User';
       result = jsonResponse(200, {
         email: user.email,
@@ -159,8 +176,16 @@ export const handler: APIGatewayProxyHandlerV2 = async (
         .parse(parseBody(event));
       result = jsonResponse(200, await patchMatterConfig(config, user.sub, body));
     } else if (matchPath(method, path, '/api/v1/webhooks/slack', 'POST')) {
+      const rawBody = event.body ?? '';
+      verifySlackRequestSignature(
+        config.slackSigningSecret,
+        event.headers?.['x-slack-signature'] ?? event.headers?.['X-Slack-Signature'],
+        event.headers?.['x-slack-request-timestamp'] ??
+          event.headers?.['X-Slack-Request-Timestamp'],
+        rawBody,
+      );
       const body = parseBody(event) as { userSub?: string; signal?: Record<string, unknown> };
-      const userSub = body.userSub ?? 'demo-user';
+      const userSub = requireWebhookUserSub(body.userSub);
       const signal = {
         id: `sig-${Date.now()}`,
         source: String(body.signal?.source ?? '#webhook'),
@@ -173,8 +198,9 @@ export const handler: APIGatewayProxyHandlerV2 = async (
       await upsertSignalFromWebhook(config, userSub, signal);
       result = jsonResponse(200, { ok: true, signal });
     } else if (matchPath(method, path, '/api/v1/webhooks/google', 'POST')) {
-      const body = parseBody(event) as { userSub?: string; signal?: Record<string, unknown> };
-      const userSub = body.userSub ?? 'demo-user';
+      const user = await requireUser(event, config);
+      const body = parseBody(event) as { signal?: Record<string, unknown> };
+      const userSub = user.sub;
       const signal = {
         id: `sig-${Date.now()}`,
         source: String(body.signal?.source ?? 'gmail@meridian.io'),

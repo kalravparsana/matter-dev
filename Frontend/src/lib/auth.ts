@@ -101,14 +101,3 @@ export function createSessionFromGoogleProfile(
 
   return { ok: true, session };
 }
-
-/** Demo sign-in when no Google client ID is configured */
-export function createDemoGoogleSession(): AuthSession {
-  const known = workspaceAccounts[workspaceUser.email.toLowerCase()]!;
-  return {
-    email: workspaceUser.email,
-    ...known,
-    loggedInAt: new Date().toISOString(),
-    provider: 'google',
-  };
-}
