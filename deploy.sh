@@ -78,7 +78,7 @@ prepare_backend_lambda_artifact() {
     aws s3 mb "s3://${bucket}"
   fi
 
-  (cd "$ROOT/backend" && npm ci && npm run package:lambda)
+  (cd "$ROOT/backend" && npm ci --include=dev && npm run package:lambda)
   local zip_file="$ROOT/backend/dist-lambda.zip"
   [[ -f "$zip_file" ]] || { echo "Lambda zip was not created. Check package:lambda." >&2; exit 1; }
   aws s3 cp "$zip_file" "s3://${bucket}/${key}"
@@ -116,23 +116,37 @@ deploy_cloudformation_layer() {
   (
     cd "$layer_dir"
     if aws cloudformation describe-stacks --stack-name "$stack_name" >/dev/null 2>&1; then
-      aws cloudformation update-stack \
+      local update_err_file
+      update_err_file="$(mktemp)"
+      if aws cloudformation update-stack \
         --stack-name "$stack_name" \
         --template-body "file://${template}" \
-        "${param_args[@]}" "${cap_args[@]}" || {
-          local err=$?
-          if aws cloudformation describe-stacks --stack-name "$stack_name" \
-            --query 'Stacks[0].StackStatus' --output text 2>/dev/null | grep -q 'IN_PROGRESS'; then
-            echo "Stack update already in progress for $stack_name" >&2
-          else
-            log_stack_failure_events "$stack_name"
-            exit $err
-          fi
+        "${param_args[@]}" "${cap_args[@]}" 2>"$update_err_file"; then
+        rm -f "$update_err_file"
+        aws cloudformation wait stack-update-complete --stack-name "$stack_name" || {
+          log_stack_failure_events "$stack_name"
+          exit 1
         }
-      aws cloudformation wait stack-update-complete --stack-name "$stack_name" || {
-        log_stack_failure_events "$stack_name"
-        exit 1
-      }
+      else
+        local err=$?
+        if grep -q 'No updates are to be performed' "$update_err_file" 2>/dev/null; then
+          echo "Stack $stack_name is already up to date" >&2
+          rm -f "$update_err_file"
+        elif aws cloudformation describe-stacks --stack-name "$stack_name" \
+          --query 'Stacks[0].StackStatus' --output text 2>/dev/null | grep -q 'IN_PROGRESS'; then
+          rm -f "$update_err_file"
+          echo "Stack update already in progress for $stack_name" >&2
+          aws cloudformation wait stack-update-complete --stack-name "$stack_name" || {
+            log_stack_failure_events "$stack_name"
+            exit 1
+          }
+        else
+          cat "$update_err_file" >&2
+          rm -f "$update_err_file"
+          log_stack_failure_events "$stack_name"
+          exit $err
+        fi
+      fi
     else
       aws cloudformation create-stack \
         --stack-name "$stack_name" \
