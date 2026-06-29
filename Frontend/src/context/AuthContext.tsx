@@ -8,21 +8,26 @@ import {
   type ReactNode,
 } from 'react';
 import {
+  apiFetch,
   clearStoredSession,
+  isApiConfigured,
   persistSession,
   readStoredSession,
+  readStoredTokens,
   type AuthSession,
   type AuthUser,
 } from '@/lib/api';
 import { signInWithGoogle } from '@/lib/cognitoAuth';
 
+type LoginResult =
+  | { ok: true; pending?: boolean }
+  | { ok: false; error: string };
+
 interface AuthContextValue {
   user: AuthUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  loginWithGoogle: () => Promise<
-    { ok: true } | { ok: false; error: string }
-  >;
+  loginWithGoogle: () => Promise<LoginResult>;
   logout: () => void;
 }
 
@@ -33,8 +38,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    setSession(readStoredSession());
-    setIsLoading(false);
+    let cancelled = false;
+
+    const restoreSession = async () => {
+      const stored = readStoredSession();
+      if (stored) {
+        if (!cancelled) setSession(stored);
+        if (!cancelled) setIsLoading(false);
+        return;
+      }
+
+      if (isApiConfigured() && readStoredTokens()?.idToken) {
+        try {
+          const profile = await apiFetch<
+            Omit<AuthSession, 'loggedInAt' | 'provider'> & { provider?: string }
+          >('/api/v1/auth/session');
+          const session: AuthSession = {
+            email: profile.email,
+            fullName: profile.fullName,
+            firstName: profile.firstName,
+            initials: profile.initials,
+            workspace: profile.workspace,
+            role: profile.role,
+            loggedInAt: new Date().toISOString(),
+            provider: 'google',
+          };
+          persistSession(session);
+          if (!cancelled) setSession(session);
+        } catch {
+          clearStoredSession();
+        }
+      }
+
+      if (!cancelled) setIsLoading(false);
+    };
+
+    void restoreSession();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const loginWithGoogle = useCallback(async () => {
@@ -43,7 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return result;
     }
     if ('pending' in result && result.pending) {
-      return { ok: true as const };
+      return { ok: true as const, pending: true };
     }
 
     persistSession(result.session);

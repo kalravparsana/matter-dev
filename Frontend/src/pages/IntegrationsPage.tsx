@@ -6,6 +6,8 @@ import {
 } from '@/data/mattar';
 import type { CoreIntegrationType, Integration } from '@/data/mattar';
 import { useIntegrations } from '@/hooks/useMattarData';
+import { saveGranolaApiKey, startIntegrationOAuth } from '@/lib/cognitoAuth';
+import { isApiConfigured } from '@/lib/api';
 import { StatusBadge } from '@/components/StatusBadge';
 import { IntegrationIcon } from '@/components/IntegrationIcon';
 import emptyInputsIllustration from '@/assets/illustrations/empty-inputs.svg';
@@ -263,6 +265,43 @@ function ConnectModal({
   initialType: CoreIntegrationType | null;
   connectedTypes: Set<CoreIntegrationType>;
 }) {
+  const [granolaKey, setGranolaKey] = useState('');
+  const [connecting, setConnecting] = useState<CoreIntegrationType | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [savingKey, setSavingKey] = useState(false);
+
+  const handleOAuthConnect = async (type: 'slack' | 'gmail') => {
+    if (!isApiConfigured()) {
+      setError('API is not configured — set VITE_API_BASE_URL to connect platforms');
+      return;
+    }
+    setError(null);
+    setConnecting(type);
+    const result = await startIntegrationOAuth(type);
+    setConnecting(null);
+    if ('error' in result) {
+      setError(result.error);
+      return;
+    }
+    window.location.href = result.url;
+  };
+
+  const handleGranolaSave = async () => {
+    if (granolaKey.trim().length < 8) {
+      setError('API key must be at least 8 characters');
+      return;
+    }
+    setError(null);
+    setSavingKey(true);
+    const result = await saveGranolaApiKey(granolaKey.trim());
+    setSavingKey(false);
+    if ('error' in result) {
+      setError(result.error);
+      return;
+    }
+    onClose();
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm"
@@ -280,19 +319,30 @@ function ConnectModal({
         <p className="mt-1 font-sans text-sm text-muted-foreground">
           Choose a platform to link to your Mattar workspace.
         </p>
+        {error && (
+          <p className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 font-sans text-xs text-destructive" role="alert">
+            {error}
+          </p>
+        )}
         <ul className="mt-4 space-y-2">
           {platformCatalog.map((platform) => {
             const isConnected = connectedTypes.has(platform.type);
+            const isOAuth = platform.type === 'slack' || platform.type === 'gmail';
             return (
               <li key={platform.type}>
                 <button
                   type="button"
-                  disabled={isConnected}
+                  disabled={isConnected || connecting === platform.type}
+                  onClick={() => {
+                    if (platform.type === 'slack' || platform.type === 'gmail') {
+                      void handleOAuthConnect(platform.type);
+                    }
+                  }}
                   className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors focus-visible:ring-2 focus-visible:ring-ring ${
                     initialType === platform.type
                       ? 'border-primary/50 bg-primary/5'
                       : 'border-border hover:border-primary/40 hover:bg-muted'
-                  } ${isConnected ? 'cursor-not-allowed opacity-60' : ''}`}
+                  } ${isConnected || connecting === platform.type ? 'cursor-not-allowed opacity-60' : ''}`}
                 >
                   <IntegrationIcon type={platform.type} className="h-5 w-5 shrink-0" />
                   <div className="min-w-0 flex-1">
@@ -307,12 +357,44 @@ function ConnectModal({
                     <p className="mt-0.5 font-sans text-xs text-muted-foreground">
                       {platform.description}
                     </p>
+                    {connecting === platform.type && (
+                      <p className="mt-1 font-sans text-[11px] text-primary">Redirecting…</p>
+                    )}
+                    {isOAuth && !isConnected && !isApiConfigured() && (
+                      <p className="mt-1 font-sans text-[11px] text-muted-foreground">
+                        Requires API connection
+                      </p>
+                    )}
                   </div>
                 </button>
               </li>
             );
           })}
         </ul>
+        <div className="mt-4 rounded-lg border border-border bg-surface p-3">
+          <label htmlFor="granola-api-key" className="font-sans text-xs font-medium text-foreground">
+            Granola API key
+          </label>
+          <p className="mt-0.5 font-sans text-[11px] text-muted-foreground">
+            Paste your Granola API key to sync meeting notes.
+          </p>
+          <input
+            id="granola-api-key"
+            type="password"
+            value={granolaKey}
+            onChange={(e) => setGranolaKey(e.target.value)}
+            placeholder="grnl_…"
+            className="mt-2 w-full rounded-lg border border-border bg-background px-3 py-2 font-sans text-sm text-foreground focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-ring"
+          />
+          <button
+            type="button"
+            onClick={() => void handleGranolaSave()}
+            disabled={savingKey || connectedTypes.has('granola')}
+            className="mt-2 w-full rounded-lg bg-primary px-3 py-2 font-sans text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {savingKey ? 'Saving…' : connectedTypes.has('granola') ? 'Granola connected' : 'Save API key'}
+          </button>
+        </div>
         <button
           type="button"
           onClick={onClose}

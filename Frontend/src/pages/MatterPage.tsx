@@ -1,10 +1,9 @@
 import { useMemo, useState } from 'react';
 import {
-  inputSignals,
   integrationMeta,
 } from '@/data/mattar';
 import type { InputSignal } from '@/data/mattar';
-import { useMatterConfig } from '@/hooks/useMattarData';
+import { useMatterConfig, useTodayData } from '@/hooks/useMattarData';
 import { StatusBadge } from '@/components/StatusBadge';
 import { IntegrationIcon } from '@/components/IntegrationIcon';
 import matterLensIllustration from '@/assets/illustrations/matter-lens.svg';
@@ -17,6 +16,7 @@ function signalPasses(signal: InputSignal, threshold: number) {
 
 export default function MatterPage() {
   const { config, setConfig, save, saving } = useMatterConfig();
+  const { signals: inputSignals } = useTodayData();
   const [prompt, setPrompt] = useState(config.prompt);
   const [saved, setSaved] = useState(false);
   const [verdictFilter, setVerdictFilter] = useState<FilterVerdict>('all');
@@ -30,7 +30,7 @@ export default function MatterPage() {
           passes: signalPasses(signal, config.priorityThreshold),
         }))
         .sort((a, b) => b.signal.matterScore - a.signal.matterScore),
-    [config.priorityThreshold],
+    [inputSignals, config.priorityThreshold],
   );
 
   const passingSignals = evaluatedSignals.filter((row) => row.passes);
@@ -146,9 +146,11 @@ export default function MatterPage() {
                 type="button"
                 role="switch"
                 aria-checked={config.autoRoute}
-                onClick={() =>
-                  setConfig((c) => ({ ...c, autoRoute: !c.autoRoute }))
-                }
+                onClick={() => {
+                  const next = !config.autoRoute;
+                  setConfig((c) => ({ ...c, autoRoute: next }));
+                  void save({ autoRoute: next });
+                }}
                 className={`relative h-5 w-9 rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-ring ${
                   config.autoRoute ? 'bg-primary' : 'bg-muted'
                 }`}

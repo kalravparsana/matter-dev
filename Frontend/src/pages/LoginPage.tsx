@@ -35,6 +35,10 @@ export default function LoginPage() {
       return;
     }
 
+    if ('pending' in result && result.pending) {
+      return;
+    }
+
     navigate(from, { replace: true });
   };
 
