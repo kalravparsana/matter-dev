@@ -21,9 +21,10 @@ export interface StoredTokens {
   refreshToken?: string;
 }
 
+import { getRuntimeConfig } from '@/lib/runtime';
+
 export function getApiBaseUrl(): string | undefined {
-  const url = import.meta.env.VITE_API_BASE_URL?.trim();
-  return url || undefined;
+  return getRuntimeConfig('API_BASE_URL');
 }
 
 export function isApiConfigured(): boolean {

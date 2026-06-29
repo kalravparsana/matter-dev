@@ -1,14 +1,13 @@
+import { Link } from 'react-router-dom';
 import { MattarRadar } from '@/components/MattarRadar';
 import { StatusBadge } from '@/components/StatusBadge';
 import { IntegrationIcon } from '@/components/IntegrationIcon';
-import {
-  integrationMeta,
-  workspaceUser,
-  type InsightMetrics,
-} from '@/data/mattar';
+import { integrationMeta, type InsightMetrics } from '@/data/mattar';
+import { useAuth } from '@/context/AuthContext';
 import { useTodayData } from '@/hooks/useMattarData';
 
 export default function TodayPage() {
+  const { user } = useAuth();
   const { signals, outputs, metrics, integrations, loading, error } = useTodayData();
   const now = new Date();
   const greeting =
@@ -23,7 +22,7 @@ export default function TodayPage() {
       <header className="flex shrink-0 flex-col gap-0.5 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="font-sans text-sm font-medium text-muted-foreground">
-            {greeting}, {workspaceUser.firstName}
+            {greeting}, {user?.firstName ?? 'there'}
           </p>
           <h1 className="font-display text-2xl font-semibold tracking-tight text-foreground">
             Mattar Today
@@ -42,18 +41,27 @@ export default function TodayPage() {
         <span className="font-display text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
           Live inputs
         </span>
-        {integrations.map((int) => (
-          <div
-            key={int.id}
-            className="flex items-center gap-1.5 rounded-lg border border-border bg-surface-raised px-2 py-1"
-          >
-            <IntegrationIcon type={int.type} className="h-4 w-4" />
-            <span className="font-sans text-xs text-foreground">
-              {integrationMeta[int.type].label}
-            </span>
-            <StatusBadge status={int.status} />
-          </div>
-        ))}
+        {integrations.length === 0 ? (
+          <span className="font-sans text-xs text-muted-foreground">
+            No platforms connected —{' '}
+            <Link to="/integrations" className="text-primary hover:underline">
+              connect Slack, Gmail, or Granola
+            </Link>
+          </span>
+        ) : (
+          integrations.map((int) => (
+            <div
+              key={int.id}
+              className="flex items-center gap-1.5 rounded-lg border border-border bg-surface-raised px-2 py-1"
+            >
+              <IntegrationIcon type={int.type} className="h-4 w-4" />
+              <span className="font-sans text-xs text-foreground">
+                {integrationMeta[int.type].label}
+              </span>
+              <StatusBadge status={int.status} />
+            </div>
+          ))
+        )}
       </div>
 
       <section

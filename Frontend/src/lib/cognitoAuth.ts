@@ -8,17 +8,18 @@ import {
   type StoredTokens,
 } from '@/lib/api';
 import { createDemoGoogleSession } from '@/lib/auth';
+import { getRuntimeConfig, isPreviewMode } from '@/lib/runtime';
 
 function getCognitoDomain(): string | undefined {
-  return import.meta.env.VITE_COGNITO_DOMAIN?.trim() || undefined;
+  return getRuntimeConfig('COGNITO_DOMAIN');
 }
 
 function getCognitoClientId(): string | undefined {
-  return import.meta.env.VITE_COGNITO_CLIENT_ID?.trim() || undefined;
+  return getRuntimeConfig('COGNITO_CLIENT_ID');
 }
 
 function getOAuthRedirectUri(): string | undefined {
-  return import.meta.env.VITE_OAUTH_REDIRECT_URI?.trim() || undefined;
+  return getRuntimeConfig('OAUTH_REDIRECT_URI');
 }
 
 export function isCognitoConfigured(): boolean {
@@ -26,7 +27,7 @@ export function isCognitoConfigured(): boolean {
 }
 
 export function isGoogleAuthConfigured(): boolean {
-  return isCognitoConfigured() || Boolean(getApiBaseUrl());
+  return isCognitoConfigured() && Boolean(getApiBaseUrl());
 }
 
 type SignInResult =
@@ -34,7 +35,14 @@ type SignInResult =
   | { ok: false; error: string };
 
 export async function signInWithGoogle(): Promise<SignInResult> {
-  if (!isCognitoConfigured() || !getApiBaseUrl()) {
+  if (!isGoogleAuthConfigured()) {
+    if (!isPreviewMode()) {
+      return {
+        ok: false,
+        error:
+          'Sign-in is not configured yet. Redeploy the app after backend and Cognito are provisioned.',
+      };
+    }
     await new Promise((r) => setTimeout(r, 600));
     const session = createDemoGoogleSession();
     persistSession(session);

@@ -18,6 +18,7 @@ import {
   type AuthUser,
 } from '@/lib/api';
 import { signInWithGoogle } from '@/lib/cognitoAuth';
+import { isPreviewMode } from '@/lib/runtime';
 
 type LoginResult =
   | { ok: true; pending?: boolean }
@@ -41,19 +42,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
 
     const restoreSession = async () => {
-      const stored = readStoredSession();
-      if (stored) {
-        if (!cancelled) setSession(stored);
-        if (!cancelled) setIsLoading(false);
-        return;
-      }
+      if (isApiConfigured()) {
+        const tokens = readStoredTokens();
+        if (!tokens?.idToken) {
+          clearStoredSession();
+          if (!cancelled) setIsLoading(false);
+          return;
+        }
 
-      if (isApiConfigured() && readStoredTokens()?.idToken) {
         try {
           const profile = await apiFetch<
             Omit<AuthSession, 'loggedInAt' | 'provider'> & { provider?: string }
           >('/api/v1/auth/session');
-          const session: AuthSession = {
+          const restored: AuthSession = {
             email: profile.email,
             fullName: profile.fullName,
             firstName: profile.firstName,
@@ -63,11 +64,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             loggedInAt: new Date().toISOString(),
             provider: 'google',
           };
-          persistSession(session);
-          if (!cancelled) setSession(session);
+          persistSession(restored);
+          if (!cancelled) setSession(restored);
         } catch {
           clearStoredSession();
         }
+        if (!cancelled) setIsLoading(false);
+        return;
+      }
+
+      if (isPreviewMode()) {
+        if (!cancelled) setSession(readStoredSession());
+      } else {
+        clearStoredSession();
       }
 
       if (!cancelled) setIsLoading(false);

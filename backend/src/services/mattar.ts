@@ -299,53 +299,29 @@ export async function ensureUserSeed(config: AppConfig, userSub: string): Promis
   );
   if (existing.Item) return;
 
-  const writes = [
-    { PK: pk, SK: SK.profile, entityType: 'profile', seeded: true },
-    ...DEFAULT_INTEGRATIONS.map((i) => ({
-      PK: pk,
-      SK: SK.integration(i.type),
-      entityType: 'integration',
-      GSI1PK: pk,
-      GSI1SK: SK.integration(i.type),
-      ...i,
-    })),
-    ...DEFAULT_SIGNALS.map((s, idx) => ({
-      PK: pk,
-      SK: SK.signal(s.id),
-      entityType: 'signal',
-      GSI1PK: pk,
-      GSI1SK: `SIGNAL#${String(idx).padStart(4, '0')}`,
-      ...s,
-    })),
-    ...DEFAULT_OUTPUTS.map((o) => ({
-      PK: pk,
-      SK: SK.output(o.id),
-      entityType: 'output',
-      ...o,
-    })),
-    ...DEFAULT_TRIGGERS.map((t) => ({
-      PK: pk,
-      SK: SK.trigger(t.id),
-      entityType: 'trigger',
-      ...t,
-    })),
-    ...DEFAULT_AGENTS.map((a) => ({
-      PK: pk,
-      SK: SK.agent(a.id),
-      entityType: 'agent',
-      ...a,
-    })),
-    {
-      PK: pk,
-      SK: SK.matterConfig,
-      entityType: 'matterConfig',
-      ...DEFAULT_MATTER,
-    },
-  ];
+  await doc.send(
+    new PutCommand({
+      TableName: config.tableName,
+      Item: {
+        PK: pk,
+        SK: SK.profile,
+        entityType: 'profile',
+        seeded: true,
+      },
+    }),
+  );
 
-  for (const item of writes) {
-    await doc.send(new PutCommand({ TableName: config.tableName, Item: item }));
-  }
+  await doc.send(
+    new PutCommand({
+      TableName: config.tableName,
+      Item: {
+        PK: pk,
+        SK: SK.matterConfig,
+        entityType: 'matterConfig',
+        ...DEFAULT_MATTER,
+      },
+    }),
+  );
 }
 
 async function queryByPrefix<T>(
@@ -372,27 +348,32 @@ export async function listIntegrations(
   userSub: string,
 ): Promise<IntegrationRecord[]> {
   await ensureUserSeed(config, userSub);
-  const items = await queryByPrefix<IntegrationRecord>(config, userSub, 'INTEGRATION#');
-  return items.map(({ id, name, type, status, lastSync, signalsToday, channel, account }) => ({
-    id,
-    name,
-    type,
-    status,
-    lastSync,
-    signalsToday,
-    channel,
-    account,
-  }));
+  const items = await queryByPrefix<
+    IntegrationRecord & { accessToken?: string; apiKeyRef?: string }
+  >(config, userSub, 'INTEGRATION#');
+  return items
+    .filter((item) => Boolean(item.accessToken || item.apiKeyRef))
+    .map(({ id, name, type, status, lastSync, signalsToday, channel, account }) => ({
+      id,
+      name,
+      type,
+      status,
+      lastSync,
+      signalsToday,
+      channel,
+      account,
+    }));
 }
 
 export async function listSignals(config: AppConfig, userSub: string): Promise<InputSignal[]> {
   await ensureUserSeed(config, userSub);
-  const items = await queryByPrefix<InputSignal & { GSI1SK?: string }>(
+  const items = await queryByPrefix<InputSignal & { GSI1SK?: string; live?: boolean }>(
     config,
     userSub,
     'SIGNAL#',
   );
   return items
+    .filter((item) => item.live === true)
     .sort((a, b) => (a.GSI1SK ?? '').localeCompare(b.GSI1SK ?? ''))
     .map(({ id, source, integration, preview, receivedAt, priority, matterScore }) => ({
       id,
@@ -407,8 +388,13 @@ export async function listSignals(config: AppConfig, userSub: string): Promise<I
 
 export async function listOutputs(config: AppConfig, userSub: string): Promise<OutputAction[]> {
   await ensureUserSeed(config, userSub);
-  const items = await queryByPrefix<OutputAction>(config, userSub, 'OUTPUT#');
-  return items.map(
+  const items = await queryByPrefix<OutputAction & { live?: boolean }>(
+    config,
+    userSub,
+    'OUTPUT#',
+  );
+  return items
+    .filter((item) => item.live === true).map(
     ({ id, name, integration, kind, lastRun, status, todayCount }) => ({
       id,
       name,
@@ -435,14 +421,18 @@ export async function getMetrics(
     matterFiltered,
     actionsRouted,
     pendingReview: Math.max(0, matterFiltered - actionsRouted),
-    avgResponseMin: 4.2,
+    avgResponseMin: signals.length > 0 ? 4.2 : 0,
   };
 }
 
 export async function listTriggers(config: AppConfig, userSub: string): Promise<InputTrigger[]> {
   await ensureUserSeed(config, userSub);
+  const connectedTypes = new Set(
+    (await listIntegrations(config, userSub)).map((integration) => integration.type),
+  );
   const items = await queryByPrefix<InputTrigger>(config, userSub, 'TRIGGER#');
-  return items.map(
+  return items
+    .filter((item) => connectedTypes.has(item.integration)).map(
     ({ id, integration, kind, label, description, enabled, eventsToday, lastEvent }) => ({
       id,
       integration,
@@ -492,8 +482,12 @@ export async function patchTrigger(
 
 export async function listAgents(config: AppConfig, userSub: string): Promise<OutputAgent[]> {
   await ensureUserSeed(config, userSub);
+  const connectedTypes = new Set(
+    (await listIntegrations(config, userSub)).map((integration) => integration.type),
+  );
   const items = await queryByPrefix<OutputAgent>(config, userSub, 'AGENT#');
-  return items.map(
+  return items
+    .filter((item) => connectedTypes.has(item.integration)).map(
     ({ id, integration, kind, name, description, status, lastRun, todayCount }) => ({
       id,
       integration,
@@ -568,6 +562,7 @@ export async function upsertSignalFromWebhook(
         entityType: 'signal',
         GSI1PK: pk,
         GSI1SK: `SIGNAL#${Date.now()}`,
+        live: true,
         ...signal,
       },
     }),

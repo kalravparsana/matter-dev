@@ -5,11 +5,12 @@ import { LogoLockup } from '@/components/Logo';
 import { GoogleSignInButton } from '@/components/GoogleSignInButton';
 import { useAuth } from '@/context/AuthContext';
 import { isGoogleAuthConfigured } from '@/lib/cognitoAuth';
+import { isPreviewMode } from '@/lib/runtime';
 import { workspaceUser } from '@/data/mattar';
 import matterLens from '@/assets/illustrations/matter-lens.svg';
 
 export default function LoginPage() {
-  const { isAuthenticated, isLoading, loginWithGoogle } = useAuth();
+  const { isAuthenticated, isLoading, loginWithGoogle, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const from =
@@ -43,6 +44,8 @@ export default function LoginPage() {
   };
 
   const googleConfigured = isGoogleAuthConfigured();
+  const previewMode = isPreviewMode();
+  const workspaceLabel = user?.workspace ?? workspaceUser.workspace;
 
   return (
     <div className="flex min-h-dvh bg-background">
@@ -78,7 +81,7 @@ export default function LoginPage() {
             Sign in
           </h1>
           <p className="mt-2 font-sans text-sm text-muted-foreground">
-            Use your {workspaceUser.workspace} Google Workspace account — no password required.
+            Use your {workspaceLabel} Google Workspace account — no password required.
           </p>
 
           <div className="mt-8 space-y-4">
@@ -94,13 +97,15 @@ export default function LoginPage() {
             <GoogleSignInButton
               onClick={handleGoogleSignIn}
               loading={submitting}
-              disabled={isLoading}
+              disabled={isLoading || (!googleConfigured && !previewMode)}
             />
 
             <p className="font-sans text-xs leading-relaxed text-muted-foreground">
-              {googleConfigured
-                ? 'Only @meridian.io Google accounts can access this workspace.'
-                : `Preview mode: Continue with Google signs you in as ${workspaceUser.fullName}. Set VITE_COGNITO_DOMAIN and VITE_API_BASE_URL for live Cognito OAuth.`}
+              {previewMode
+                ? `Preview mode: Continue with Google signs you in as ${workspaceUser.fullName}. Set VITE_API_BASE_URL and Cognito vars for live OAuth.`
+                : googleConfigured
+                  ? 'You will be redirected to Google sign-in via Cognito.'
+                  : 'Sign-in is unavailable until the app is redeployed with API and Cognito configuration.'}
             </p>
           </div>
         </div>

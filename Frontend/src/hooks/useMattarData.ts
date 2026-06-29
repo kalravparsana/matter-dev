@@ -18,6 +18,7 @@ import type {
   MatterConfig,
 } from '@/data/mattar';
 import { apiFetch, isApiConfigured } from '@/lib/api';
+import { emptyInsightMetrics, isPreviewMode } from '@/lib/runtime';
 
 interface TodayData {
   signals: InputSignal[];
@@ -30,10 +31,15 @@ interface TodayData {
 }
 
 export function useTodayData(pollIntervalMs = 5000): TodayData {
-  const [signals, setSignals] = useState<InputSignal[]>(mockSignals);
-  const [outputs, setOutputs] = useState<OutputAction[]>(mockOutputs);
-  const [metrics, setMetrics] = useState<InsightMetrics>(mockMetrics);
-  const [integrations, setIntegrations] = useState<Integration[]>(mockIntegrations);
+  const preview = isPreviewMode();
+  const [signals, setSignals] = useState<InputSignal[]>(preview ? mockSignals : []);
+  const [outputs, setOutputs] = useState<OutputAction[]>(preview ? mockOutputs : []);
+  const [metrics, setMetrics] = useState<InsightMetrics>(
+    preview ? mockMetrics : emptyInsightMetrics,
+  );
+  const [integrations, setIntegrations] = useState<Integration[]>(
+    preview ? mockIntegrations : [],
+  );
   const [loading, setLoading] = useState(isApiConfigured());
   const [error, setError] = useState<string | null>(null);
   const mounted = useRef(true);
@@ -82,7 +88,10 @@ export function useTodayData(pollIntervalMs = 5000): TodayData {
 }
 
 export function useIntegrations() {
-  const [integrations, setIntegrations] = useState<Integration[]>(mockIntegrations);
+  const preview = isPreviewMode();
+  const [integrations, setIntegrations] = useState<Integration[]>(
+    preview ? mockIntegrations : [],
+  );
   const [loading, setLoading] = useState(isApiConfigured());
 
   useEffect(() => {
@@ -99,7 +108,8 @@ export function useIntegrations() {
 }
 
 export function useInputTriggers() {
-  const [triggers, setTriggers] = useState<InputTrigger[]>(mockTriggers);
+  const preview = isPreviewMode();
+  const [triggers, setTriggers] = useState<InputTrigger[]>(preview ? mockTriggers : []);
   const { integrations } = useIntegrations();
 
   useEffect(() => {
@@ -121,7 +131,6 @@ export function useInputTriggers() {
           });
           setTriggers((prev) => prev.map((t) => (t.id === id ? updated : t)));
         } catch {
-          /* revert on error */
           setTriggers((prev) =>
             prev.map((t) => (t.id === id ? { ...t, enabled: current.enabled } : t)),
           );
@@ -134,7 +143,8 @@ export function useInputTriggers() {
 }
 
 export function useOutputAgents() {
-  const [agents, setAgents] = useState<OutputAgent[]>(mockAgents);
+  const preview = isPreviewMode();
+  const [agents, setAgents] = useState<OutputAgent[]>(preview ? mockAgents : []);
   const { integrations } = useIntegrations();
 
   useEffect(() => {
@@ -146,7 +156,17 @@ export function useOutputAgents() {
 }
 
 export function useMatterConfig() {
-  const [config, setConfig] = useState<MatterConfig>(mockMatterConfig);
+  const preview = isPreviewMode();
+  const [config, setConfig] = useState<MatterConfig>(
+    preview ? mockMatterConfig : {
+      prompt: '',
+      temperature: 0.3,
+      priorityThreshold: 70,
+      autoRoute: false,
+      lastEdited: '—',
+      editedBy: '—',
+    },
+  );
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -163,7 +183,7 @@ export function useMatterConfig() {
           body: JSON.stringify(patch),
         });
         setConfig(updated);
-      } else {
+      } else if (preview) {
         setConfig((c) => ({ ...c, ...patch, lastEdited: 'Just now' }));
       }
     } finally {
