@@ -1,18 +1,26 @@
 [
   {
     "ParameterKey": "LambdaCodeS3Bucket",
-    "ParameterValue": "mattar-lambda-artifacts-placeholder"
+    "ParameterValue": "matter-staging-assets"
   },
   {
     "ParameterKey": "LambdaCodeS3Key",
-    "ParameterValue": "mattar-api/lambda.zip"
+    "ParameterValue": "matter-staging-api"
   },
   {
     "ParameterKey": "EnvironmentName",
-    "ParameterValue": "dev"
+    "ParameterValue": "matter-staging"
   },
   {
     "ParameterKey": "AllowedOrigins",
-    "ParameterValue": "http://localhost:5173"
+    "ParameterValue": "https://d635pm2glyuc9.cloudfront.net"
+  },
+  {
+    "ParameterKey": "GoogleClientId",
+    "ParameterValue": "462402501793-punfchheah9r9ndcglgq79rkika40gqk.apps.googleusercontent.com"
+  },
+  {
+    "ParameterKey": "GoogleClientSecret",
+    "ParameterValue": "k5qur5ut97smafr3lds397o9u8jcfhql70dnpbechjkeov33r6i"
   }
 ]
