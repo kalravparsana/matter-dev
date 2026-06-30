@@ -267,7 +267,7 @@ publish_frontend_assets() {
     exit 1
   fi
 
-  (cd "$FRONTEND_LAYER_DIR" && npm ci && npm run build)
+  (cd "$FRONTEND_LAYER_DIR" && npm ci --include=dev && npm run build)
 
   local build_dir
   build_dir="$(resolve_frontend_build_dir "$FRONTEND_LAYER_DIR")"
