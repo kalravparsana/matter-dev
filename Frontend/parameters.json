@@ -1,7 +1,7 @@
 [
   {
     "ParameterKey": "EnvironmentName",
-    "ParameterValue": "dev"
+    "ParameterValue": "matter-staging"
   },
   {
     "ParameterKey": "CustomDomainName",
