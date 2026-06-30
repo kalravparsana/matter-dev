@@ -1,14 +1,32 @@
-import { cpSync, mkdirSync, rmSync } from 'node:fs';
-import { execSync } from 'node:child_process';
+import { cpSync, createWriteStream, mkdirSync, rmSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import archiver from 'archiver';
 
-const staging = 'dist/lambda-package';
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const backendRoot = join(__dirname, '..');
+const staging = join(backendRoot, 'dist/lambda-package');
+const zipPath = join(backendRoot, 'dist-lambda.zip');
+
 rmSync(staging, { recursive: true, force: true });
 mkdirSync(staging, { recursive: true });
 
-cpSync('dist/handlers/api.mjs', `${staging}/index.mjs`);
-cpSync('dist/handlers/stream-processor.mjs', `${staging}/stream.mjs`);
+cpSync(join(backendRoot, 'dist/handlers/api.mjs'), join(staging, 'index.mjs'));
+cpSync(join(backendRoot, 'dist/handlers/stream-processor.mjs'), join(staging, 'stream.mjs'));
 
-rmSync('dist-lambda.zip', { force: true });
-execSync(`cd ${staging} && zip -r ../dist-lambda.zip .`, { stdio: 'inherit' });
+rmSync(zipPath, { force: true });
+
+await new Promise((resolve, reject) => {
+  const output = createWriteStream(zipPath);
+  const archive = archiver('zip', { zlib: { level: 9 } });
+
+  output.on('close', resolve);
+  archive.on('error', reject);
+  output.on('error', reject);
+
+  archive.pipe(output);
+  archive.directory(staging, false);
+  archive.finalize();
+});
 
 console.log('Created dist-lambda.zip');
