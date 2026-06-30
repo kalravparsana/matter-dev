@@ -48,16 +48,7 @@ patch_dotenv_key() {
   local env_file="$1"
   local key="$2"
   local value="$3"
-  node -e "
-    const fs = require('fs');
-    const [key, value, file] = process.argv.slice(1);
-    let text = '';
-    try { text = fs.readFileSync(file, 'utf8'); } catch { text = ''; }
-    const line = key + '=' + value;
-    const pattern = new RegExp('^' + key.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&') + '=.*$', 'm');
-    text = pattern.test(text) ? text.replace(pattern, line) : (text.trimEnd() + (text.endsWith('\\n') || !text ? '' : '\\n') + line + '\\n');
-    fs.writeFileSync(file, text);
-  " "$key" "$value" "$env_file"
+  node "$ROOT/scripts/patch-dotenv.mjs" "$key" "$value" "$env_file"
 }
 
 read_cfn_stack_output() {
@@ -116,7 +107,7 @@ prepare_backend_lambda_artifact() {
     aws s3 mb "s3://${bucket}"
   fi
 
-  (cd "$ROOT/backend" && npm ci && npm run package:lambda)
+  (cd "$ROOT/backend" && npm ci --include=dev && npm run package:lambda)
   local zip_file="$ROOT/backend/dist-lambda.zip"
   [[ -f "$zip_file" ]] || { echo "Lambda zip was not created. Check package:lambda." >&2; exit 1; }
   aws s3 cp "$zip_file" "s3://${bucket}/${key}"
@@ -154,23 +145,30 @@ deploy_cloudformation_layer() {
   (
     cd "$layer_dir"
     if aws cloudformation describe-stacks --stack-name "$stack_name" >/dev/null 2>&1; then
-      aws cloudformation update-stack \
+      local update_output update_status
+      update_output="$(aws cloudformation update-stack \
         --stack-name "$stack_name" \
         --template-body "file://${template}" \
-        "${param_args[@]}" "${cap_args[@]}" || {
-          local err=$?
-          if aws cloudformation describe-stacks --stack-name "$stack_name" \
+        "${param_args[@]}" "${cap_args[@]}" 2>&1)" || {
+          if [[ "$update_output" == *"No updates are to be performed"* ]]; then
+            echo "No CloudFormation changes for $stack_name" >&2
+          elif aws cloudformation describe-stacks --stack-name "$stack_name" \
             --query 'Stacks[0].StackStatus' --output text 2>/dev/null | grep -q 'IN_PROGRESS'; then
             echo "Stack update already in progress for $stack_name" >&2
           else
+            echo "$update_output" >&2
             log_stack_failure_events "$stack_name"
-            exit $err
+            exit 1
           fi
         }
-      aws cloudformation wait stack-update-complete --stack-name "$stack_name" || {
-        log_stack_failure_events "$stack_name"
-        exit 1
-      }
+      update_status="$(aws cloudformation describe-stacks --stack-name "$stack_name" \
+        --query 'Stacks[0].StackStatus' --output text 2>/dev/null || echo "")"
+      if [[ "$update_status" == *"_IN_PROGRESS" ]]; then
+        aws cloudformation wait stack-update-complete --stack-name "$stack_name" || {
+          log_stack_failure_events "$stack_name"
+          exit 1
+        }
+      fi
     else
       aws cloudformation create-stack \
         --stack-name "$stack_name" \
