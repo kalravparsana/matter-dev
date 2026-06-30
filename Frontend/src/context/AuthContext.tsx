@@ -12,7 +12,6 @@ import {
   clearStoredSession,
   isApiConfigured,
   persistSession,
-  readStoredSession,
   readStoredTokens,
   type AuthSession,
   type AuthUser,
