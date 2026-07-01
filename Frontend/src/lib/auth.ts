@@ -1,4 +1,5 @@
 import { workspaceUser } from '@/data/mattar';
+import { ALLOWED_WORKSPACE_DOMAIN, ALLOWED_WORKSPACE_NAME } from '@/lib/workspace';
 
 export const AUTH_STORAGE_KEY = 'mattar_session';
 
@@ -30,11 +31,11 @@ const workspaceAccounts: Record<string, Omit<AuthUser, 'email'>> = {
     workspace: workspaceUser.workspace,
     role: workspaceUser.role,
   },
-  'alex@meridian.io': {
+  'alex@york.ie': {
     fullName: 'Alex Chen',
     firstName: 'Alex',
     initials: 'AC',
-    workspace: 'Meridian',
+    workspace: ALLOWED_WORKSPACE_NAME,
     role: 'Operator',
   },
 };
@@ -76,10 +77,10 @@ export function createSessionFromGoogleProfile(
   }
 
   const domain = email.split('@')[1];
-  if (domain !== 'meridian.io') {
+  if (domain !== ALLOWED_WORKSPACE_DOMAIN) {
     return {
       ok: false,
-      error: 'Sign in with your Meridian Google Workspace account to continue',
+      error: `Sign in with your ${ALLOWED_WORKSPACE_NAME} Google Workspace account to continue`,
     };
   }
 
@@ -93,7 +94,7 @@ export function createSessionFromGoogleProfile(
     fullName,
     firstName: known?.firstName ?? firstName,
     initials,
-    workspace: known?.workspace ?? 'Meridian',
+    workspace: known?.workspace ?? ALLOWED_WORKSPACE_NAME,
     role: known?.role ?? 'Operator',
     loggedInAt: new Date().toISOString(),
     provider: 'google',

@@ -89,7 +89,7 @@ const DEFAULT_INTEGRATIONS: IntegrationRecord[] = [
     status: 'connected',
     lastSync: '2 min ago',
     signalsToday: 28,
-    channel: 'Meridian HQ workspace',
+    channel: 'York HQ workspace',
   },
   {
     id: 'int-2',
@@ -98,7 +98,7 @@ const DEFAULT_INTEGRATIONS: IntegrationRecord[] = [
     status: 'connected',
     lastSync: '4 min ago',
     signalsToday: 14,
-    account: 'priya@meridian.io',
+    account: 'priya@york.ie',
   },
   {
     id: 'int-3',
@@ -123,7 +123,7 @@ const DEFAULT_SIGNALS: InputSignal[] = [
   },
   {
     id: 'sig-2',
-    source: 'sarah.chen@meridian.io',
+    source: 'sarah.chen@york.ie',
     integration: 'gmail',
     preview: 'Re: Q2 contract renewal — legal flagged clause 7.2',
     receivedAt: '7:52 AM',
@@ -283,7 +283,7 @@ const DEFAULT_AGENTS: OutputAgent[] = [
 ];
 
 const DEFAULT_MATTER: MatterConfig = {
-  prompt: `You are the Matter agent for Meridian's ops team. Surface only what needs human attention today.`,
+  prompt: `You are the Matter agent for York's ops team. Surface only what needs human attention today.`,
   temperature: 0.3,
   priorityThreshold: 70,
   autoRoute: true,

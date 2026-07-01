@@ -82,7 +82,7 @@ export function AppShell() {
 
       <footer className="shrink-0 border-t border-border py-2">
         <div className="mx-auto flex max-w-[1440px] items-center justify-between px-4 font-sans text-[11px] text-muted-foreground">
-          <span>Mattar v0.1 · Meridian workspace</span>
+          <span>Mattar v0.1 · York workspace</span>
           <span className="font-display tabular-nums">
             Last sync 2m ago
           </span>

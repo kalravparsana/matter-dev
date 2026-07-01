@@ -15,6 +15,10 @@ import { AppError, toErrorResponse } from '../lib/errors.js';
 import { corsHeaders, jsonResponse, noContentResponse, withCors } from '../lib/response.js';
 import { verifySlackRequestSignature } from '../lib/slack.js';
 import {
+  ALLOWED_WORKSPACE_NAME,
+  isAllowedWorkspaceEmail,
+} from '../lib/workspace.js';
+import {
   buildGmailAuthorizeUrl,
   buildSlackAuthorizeUrl,
   getMatterConfig,
@@ -105,9 +109,9 @@ export const handler: APIGatewayProxyHandlerV2 = async (
     } else if (matchPath(method, path, '/api/v1/auth/session', 'GET')) {
       const user = await requireUser(event, config);
       const email = user.email.trim().toLowerCase();
-      if (!email.endsWith('@meridian.io')) {
+      if (!isAllowedWorkspaceEmail(email)) {
         throw new AppError(
-          'Sign in with your Meridian Google Workspace account to continue',
+          `Sign in with your ${ALLOWED_WORKSPACE_NAME} Google Workspace account to continue`,
           403,
           'FORBIDDEN_DOMAIN',
         );
@@ -118,7 +122,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (
         fullName: user.name,
         firstName: givenName,
         initials: givenName.slice(0, 2).toUpperCase(),
-        workspace: 'Meridian',
+        workspace: ALLOWED_WORKSPACE_NAME,
         role: 'Owner',
         provider: 'google',
       });
@@ -203,7 +207,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (
       const userSub = user.sub;
       const signal = {
         id: `sig-${Date.now()}`,
-        source: String(body.signal?.source ?? 'gmail@meridian.io'),
+        source: String(body.signal?.source ?? 'gmail@york.ie'),
         integration: 'gmail' as const,
         preview: String(body.signal?.preview ?? 'New Gmail message'),
         receivedAt: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),

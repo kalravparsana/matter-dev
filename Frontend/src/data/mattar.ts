@@ -122,7 +122,7 @@ export const inputSignals: InputSignal[] = [
   },
   {
     id: 'sig-2',
-    source: 'sarah.chen@meridian.io',
+    source: 'sarah.chen@york.ie',
     integration: 'gmail',
     preview: 'Re: Q2 contract renewal — legal flagged clause 7.2',
     receivedAt: '7:52 AM',
@@ -223,7 +223,7 @@ export const integrations: Integration[] = [
     status: 'connected',
     lastSync: '2 min ago',
     signalsToday: 28,
-    channel: 'Meridian HQ workspace',
+    channel: 'York HQ workspace',
   },
   {
     id: 'int-2',
@@ -232,7 +232,7 @@ export const integrations: Integration[] = [
     status: 'connected',
     lastSync: '4 min ago',
     signalsToday: 14,
-    account: 'priya@meridian.io',
+    account: 'priya@york.ie',
   },
   {
     id: 'int-3',
@@ -334,7 +334,7 @@ export const inputTriggers: InputTrigger[] = [
     integration: 'gmail',
     kind: 'gmail-new-email',
     label: 'New email',
-    description: 'Inbound messages to priya@meridian.io excluding promotions',
+    description: 'Inbound messages to priya@york.ie excluding promotions',
     enabled: true,
     eventsToday: 11,
     lastEvent: '7:52 AM',
@@ -372,7 +372,7 @@ export const inputTriggers: InputTrigger[] = [
 ];
 
 export const defaultMatterConfig: MatterConfig = {
-  prompt: `You are the Matter agent for Meridian's ops team. Your job is to surface only what needs human attention today.
+  prompt: `You are the Matter agent for York's ops team. Your job is to surface only what needs human attention today.
 
 Prioritize:
 - Revenue risk (churn, contract issues, payment blocks)
@@ -397,8 +397,8 @@ export const workspaceUser = {
   firstName: 'Priya',
   fullName: 'Priya Natarajan',
   initials: 'PN',
-  email: 'priya@meridian.io',
-  workspace: 'Meridian',
+  email: 'priya@york.ie',
+  workspace: 'York',
   role: 'Owner',
 } as const;
 
@@ -415,7 +415,7 @@ export const platformCatalog: PlatformCatalogEntry[] = [
   },
   {
     type: 'gmail',
-    description: 'Inbox threads and replies for priya@meridian.io',
+    description: 'Inbox threads and replies for priya@york.ie',
   },
   {
     type: 'granola',

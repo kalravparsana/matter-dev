@@ -5,8 +5,8 @@ import { LogoLockup } from '@/components/Logo';
 import { GoogleSignInButton } from '@/components/GoogleSignInButton';
 import { useAuth } from '@/context/AuthContext';
 import { isGoogleAuthConfigured } from '@/lib/cognitoAuth';
-import { workspaceUser } from '@/data/mattar';
 import matterLens from '@/assets/illustrations/matter-lens.svg';
+import { ALLOWED_WORKSPACE_DOMAIN } from '@/lib/workspace';
 
 export default function LoginPage() {
   const { isAuthenticated, isLoading, loginWithGoogle } = useAuth();
@@ -78,7 +78,7 @@ export default function LoginPage() {
             Sign in
           </h1>
           <p className="mt-2 font-sans text-sm text-muted-foreground">
-            Use your {workspaceUser.workspace} Google Workspace account — no password required.
+            Use your York Google Workspace account — no password required.
           </p>
 
           <div className="mt-8 space-y-4">
@@ -99,7 +99,7 @@ export default function LoginPage() {
 
             <p className="font-sans text-xs leading-relaxed text-muted-foreground">
               {googleConfigured
-                ? 'Only @meridian.io Google accounts can access this workspace.'
+                ? `Only @${ALLOWED_WORKSPACE_DOMAIN} Google accounts can access this workspace.`
                 : 'Sign-in requires Cognito OAuth and API configuration. Deploy the backend and frontend stacks, or set VITE_API_BASE_URL, VITE_COGNITO_DOMAIN, VITE_COGNITO_CLIENT_ID, and VITE_OAUTH_REDIRECT_URI in your environment.'}
             </p>
           </div>

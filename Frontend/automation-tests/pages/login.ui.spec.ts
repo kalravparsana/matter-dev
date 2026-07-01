@@ -23,6 +23,6 @@ test.describe('Login — UI Rendering', () => {
   });
 
   test('workspace hint text is visible', async ({ page }) => {
-    await expect(page.getByText(/meridian/i).first()).toBeVisible();
+    await expect(page.getByText(/york/i).first()).toBeVisible();
   });
 });

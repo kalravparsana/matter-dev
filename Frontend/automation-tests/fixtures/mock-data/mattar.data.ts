@@ -1,7 +1,7 @@
 /** Mattar domain data for Playwright specs */
 export const mattarData = {
   valid: {
-    email: 'priya@meridian.io',
+    email: 'priya@york.ie',
     fullName: 'Priya Natarajan',
     granolaApiKey: 'grnl_live_test_key_12345678',
   },
@@ -23,7 +23,7 @@ export const mattarData = {
         status: 'connected',
         lastSync: '2 min ago',
         signalsToday: 28,
-        channel: 'Meridian HQ workspace',
+        channel: 'York HQ workspace',
       },
       {
         id: 'int-2',
@@ -32,7 +32,7 @@ export const mattarData = {
         status: 'connected',
         lastSync: '4 min ago',
         signalsToday: 14,
-        account: 'priya@meridian.io',
+        account: 'priya@york.ie',
       },
       {
         id: 'int-3',
@@ -82,7 +82,7 @@ export const mattarData = {
         status: 'connected',
         lastSync: '2 min ago',
         signalsToday: 28,
-        channel: 'Meridian HQ workspace',
+        channel: 'York HQ workspace',
       },
       {
         id: 'int-2',
@@ -91,7 +91,7 @@ export const mattarData = {
         status: 'connected',
         lastSync: '4 min ago',
         signalsToday: 14,
-        account: 'priya@meridian.io',
+        account: 'priya@york.ie',
       },
     ],
     triggers: [
@@ -110,7 +110,7 @@ export const mattarData = {
         integration: 'gmail',
         kind: 'gmail-new-email',
         label: 'New email',
-        description: 'Inbound messages to priya@meridian.io',
+        description: 'Inbound messages to priya@york.ie',
         enabled: false,
         eventsToday: 0,
         lastEvent: 'Paused',
@@ -139,7 +139,7 @@ export const mattarData = {
       },
     ],
     matterConfig: {
-      prompt: 'You are the Matter agent for Meridian ops.',
+      prompt: 'You are the Matter agent for York ops.',
       temperature: 0.3,
       priorityThreshold: 70,
       autoRoute: true,
