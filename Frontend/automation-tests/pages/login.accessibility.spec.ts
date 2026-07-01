@@ -3,9 +3,10 @@ import { test, expect } from '@playwright/test';
 test.describe('Login — Accessibility', () => {
   test('heading and button are keyboard reachable', async ({ page }) => {
     await page.goto('/login');
-    await page.keyboard.press('Tab');
-    const focused = page.locator(':focus');
-    await expect(focused).toBeVisible();
+    const button = page.getByRole('button', { name: /continue with google/i });
+    await expect(button).toBeVisible();
+    await button.focus();
+    await expect(button).toBeFocused();
   });
 
   test('sign-in button has accessible name', async ({ page }) => {

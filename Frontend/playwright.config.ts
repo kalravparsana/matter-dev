@@ -32,5 +32,14 @@ export default defineConfig({
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
+    env: {
+      ...process.env,
+      VITE_API_BASE_URL: process.env.VITE_API_BASE_URL ?? baseURL,
+      VITE_COGNITO_DOMAIN:
+        process.env.VITE_COGNITO_DOMAIN ?? 'example.auth.us-east-1.amazoncognito.com',
+      VITE_COGNITO_CLIENT_ID: process.env.VITE_COGNITO_CLIENT_ID ?? 'example-client-id',
+      VITE_OAUTH_REDIRECT_URI:
+        process.env.VITE_OAUTH_REDIRECT_URI ?? `${baseURL}/auth/callback`,
+    },
   },
 });

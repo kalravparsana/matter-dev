@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import {
   integrationMeta,
 } from '@/data/mattar';
@@ -21,6 +21,10 @@ export default function MatterPage() {
   const [saved, setSaved] = useState(false);
   const [verdictFilter, setVerdictFilter] = useState<FilterVerdict>('all');
   const hasChanges = prompt !== config.prompt;
+
+  useEffect(() => {
+    setPrompt(config.prompt);
+  }, [config.prompt]);
 
   const evaluatedSignals = useMemo(
     () =>
@@ -146,6 +150,7 @@ export default function MatterPage() {
                 type="button"
                 role="switch"
                 aria-checked={config.autoRoute}
+                aria-label="Auto-route outputs"
                 onClick={() => {
                   const next = !config.autoRoute;
                   setConfig((c) => ({ ...c, autoRoute: next }));

@@ -5,6 +5,6 @@ test.describe('Login — Edge Cases', () => {
     await page.goto('/login');
     const button = page.getByRole('button', { name: /continue with google/i });
     await button.dblclick();
-    await expect(page).toHaveURL(/\/(today|login)/);
+    await expect(button).toBeVisible();
   });
 });

@@ -1,8 +1,11 @@
-import { test, expect } from '../fixtures/authenticated-test';
+import { test, expect } from '@playwright/test';
+import { seedAuthenticatedSession } from '../fixtures/authenticated-test';
+import { gotoAuthenticated } from '../helpers/mattar-api.helper';
 import { mattarData } from '../fixtures/mock-data/mattar.data';
 
 test.describe('Today — Error States', () => {
   test('empty signals list still renders radar shell', async ({ page }) => {
+    await seedAuthenticatedSession(page);
     await page.route('**/api/v1/signals', (route) =>
       route.fulfill({ status: 200, body: '[]' }),
     );
@@ -16,10 +19,7 @@ test.describe('Today — Error States', () => {
     await page.route('**/api/v1/integrations', (route) =>
       route.fulfill({ status: 200, body: JSON.stringify(mattarData.api.integrations) }),
     );
-    await page.evaluate(() => {
-      localStorage.setItem('mattar_tokens', JSON.stringify({ idToken: 'test' }));
-    });
-    await page.goto('/today');
-    await expect(page.getByLabel(/mattar radar/i)).toBeVisible();
+    await gotoAuthenticated(page, '/today', { mockApis: false });
+    await expect(page.getByLabel('Mattar radar — what matters today')).toBeVisible();
   });
 });

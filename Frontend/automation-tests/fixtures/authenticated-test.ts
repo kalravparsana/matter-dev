@@ -1,5 +1,5 @@
 import { test as base, expect, type Page } from '@playwright/test';
-import { mattarData } from './fixtures/mock-data/mattar.data';
+import { mattarData } from './mock-data/mattar.data';
 
 export async function seedAuthenticatedSession(page: Page): Promise<void> {
   await page.addInitScript((session) => {
