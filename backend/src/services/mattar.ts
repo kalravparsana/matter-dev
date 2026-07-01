@@ -508,3 +508,179 @@ export function buildGmailAuthorizeUrl(config: AppConfig, state: string): string
   });
   return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
 }
+
+export function parseIntegrationOAuthState(
+  state: string,
+): { userSub: string; type: CoreIntegrationType } {
+  const parts = state.split(':');
+  if (parts.length < 3) {
+    throw new Error('Invalid OAuth state');
+  }
+  const type = parts[1] as CoreIntegrationType;
+  if (type !== 'slack' && type !== 'gmail') {
+    throw new Error('Invalid integration type in OAuth state');
+  }
+  return { userSub: parts[0], type };
+}
+
+export function getIntegrationCallbackRedirect(
+  config: AppConfig,
+  type: CoreIntegrationType,
+  outcome: 'success' | 'error',
+  message?: string,
+): string {
+  const base = config.allowedOrigins[0]?.replace(/\/$/, '') ?? '';
+  const params = new URLSearchParams({ integration: type, status: outcome });
+  if (message) params.set('message', message);
+  return `${base}/integrations?${params.toString()}`;
+}
+
+interface SlackOAuthAccessResponse {
+  ok: boolean;
+  error?: string;
+  access_token?: string;
+  team?: { id: string; name: string };
+}
+
+interface GoogleTokenResponse {
+  access_token: string;
+  refresh_token?: string;
+  expires_in?: number;
+  error?: string;
+  error_description?: string;
+}
+
+interface GoogleUserInfo {
+  email?: string;
+}
+
+async function storeOAuthIntegration(
+  config: AppConfig,
+  userSub: string,
+  integration: IntegrationRecord,
+  tokens: Record<string, string | number | undefined>,
+): Promise<IntegrationRecord> {
+  const doc = getDocClient();
+  const pk = userPk(userSub);
+  await doc.send(
+    new PutCommand({
+      TableName: config.tableName,
+      Item: {
+        PK: pk,
+        SK: SK.integration(integration.type),
+        entityType: 'integration',
+        ...tokens,
+        ...integration,
+      },
+    }),
+  );
+  return integration;
+}
+
+export async function completeSlackOAuth(
+  config: AppConfig,
+  code: string,
+  userSub: string,
+): Promise<IntegrationRecord> {
+  if (!config.slackClientId || !config.slackClientSecret || !config.slackOAuthRedirectUri) {
+    throw new Error('Slack integration is not configured');
+  }
+
+  await ensureUserSeed(config, userSub);
+
+  const body = new URLSearchParams({
+    client_id: config.slackClientId,
+    client_secret: config.slackClientSecret,
+    code,
+    redirect_uri: config.slackOAuthRedirectUri,
+  });
+
+  const response = await fetch('https://slack.com/api/oauth.v2.access', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body,
+  });
+
+  const data = (await response.json()) as SlackOAuthAccessResponse;
+  if (!response.ok || !data.ok || !data.access_token) {
+    throw new Error(data.error ?? 'Slack authorization failed');
+  }
+
+  const teamName = data.team?.name ?? 'Slack workspace';
+  const integration: IntegrationRecord = {
+    id: `int-slack-${userSub.slice(0, 8)}`,
+    name: 'Slack',
+    type: 'slack',
+    status: 'connected',
+    lastSync: 'Just now',
+    signalsToday: 0,
+    channel: teamName,
+  };
+
+  return storeOAuthIntegration(config, userSub, integration, {
+    accessToken: data.access_token,
+    teamId: data.team?.id,
+    tokenType: 'slack_oauth_v2',
+  });
+}
+
+export async function completeGmailOAuth(
+  config: AppConfig,
+  code: string,
+  userSub: string,
+): Promise<IntegrationRecord> {
+  if (
+    !config.googleOAuthClientId ||
+    !config.googleOAuthClientSecret ||
+    !config.gmailOAuthRedirectUri
+  ) {
+    throw new Error('Gmail integration is not configured');
+  }
+
+  await ensureUserSeed(config, userSub);
+
+  const body = new URLSearchParams({
+    grant_type: 'authorization_code',
+    code,
+    client_id: config.googleOAuthClientId,
+    client_secret: config.googleOAuthClientSecret,
+    redirect_uri: config.gmailOAuthRedirectUri,
+  });
+
+  const response = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body,
+  });
+
+  const data = (await response.json()) as GoogleTokenResponse;
+  if (!response.ok || !data.access_token) {
+    throw new Error(data.error_description ?? data.error ?? 'Gmail authorization failed');
+  }
+
+  let account = 'Gmail';
+  const profileResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+    headers: { Authorization: `Bearer ${data.access_token}` },
+  });
+  if (profileResponse.ok) {
+    const profile = (await profileResponse.json()) as GoogleUserInfo;
+    if (profile.email) account = profile.email;
+  }
+
+  const integration: IntegrationRecord = {
+    id: `int-gmail-${userSub.slice(0, 8)}`,
+    name: 'Gmail',
+    type: 'gmail',
+    status: 'connected',
+    lastSync: 'Just now',
+    signalsToday: 0,
+    account,
+  };
+
+  return storeOAuthIntegration(config, userSub, integration, {
+    accessToken: data.access_token,
+    refreshToken: data.refresh_token,
+    expiresIn: data.expires_in,
+    tokenType: 'google_oauth',
+  });
+}

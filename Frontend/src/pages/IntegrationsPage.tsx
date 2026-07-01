@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   integrationMeta,
   platformCatalog,
@@ -18,11 +18,45 @@ export default function IntegrationsPage() {
   const { integrations, loading, error, refresh } = useIntegrations();
   const { triggers } = useInputTriggers();
   const { agents } = useOutputAgents();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [filter, setFilter] = useState<FilterStatus>('all');
   const [showConnect, setShowConnect] = useState(false);
   const [connectTarget, setConnectTarget] = useState<CoreIntegrationType | null>(
     null,
   );
+  const [oauthNotice, setOauthNotice] = useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
+
+  useEffect(() => {
+    const status = searchParams.get('status');
+    const integration = searchParams.get('integration');
+    if (!status || !integration) return;
+
+    const label = integrationMeta[integration as CoreIntegrationType]?.label ?? integration;
+    if (status === 'success') {
+      setOauthNotice({
+        type: 'success',
+        message: `${label} connected successfully.`,
+      });
+      void refresh();
+    } else if (status === 'error') {
+      const detail = searchParams.get('message');
+      setOauthNotice({
+        type: 'error',
+        message: detail
+          ? `Could not connect ${label}: ${detail}`
+          : `Could not connect ${label}. Please try again.`,
+      });
+    }
+
+    const next = new URLSearchParams(searchParams);
+    next.delete('status');
+    next.delete('integration');
+    next.delete('message');
+    setSearchParams(next, { replace: true });
+  }, [refresh, searchParams, setSearchParams]);
 
   const connectedTypes = new Set(integrations.map((i) => i.type));
   const hasConnections = integrations.length > 0;
@@ -63,6 +97,19 @@ export default function IntegrationsPage() {
           Connect platform
         </button>
       </header>
+
+      {oauthNotice && (
+        <p
+          className={`rounded-lg border px-3 py-2 font-sans text-sm ${
+            oauthNotice.type === 'success'
+              ? 'border-primary/30 bg-primary/5 text-primary'
+              : 'border-destructive/30 bg-destructive/5 text-destructive'
+          }`}
+          role="status"
+        >
+          {oauthNotice.message}
+        </p>
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
         {(['all', 'connected', 'syncing', 'error'] as const).map((f) => (
