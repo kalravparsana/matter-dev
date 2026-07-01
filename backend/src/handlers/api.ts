@@ -28,6 +28,7 @@ import {
   listOutputs,
   listSignals,
   listTriggers,
+  ensureUserSeed,
   patchMatterConfig,
   patchTrigger,
   storeGranolaApiKey,
@@ -113,6 +114,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (
           'FORBIDDEN_DOMAIN',
         );
       }
+      await ensureUserSeed(config, user.sub);
       result = jsonResponse(200, tokens);
     } else if (matchPath(method, path, '/api/v1/auth/session', 'GET')) {
       const user = await requireUser(event, config);
@@ -125,6 +127,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (
         );
       }
       const givenName = user.givenName ?? user.name.split(/\s+/)[0] ?? 'User';
+      await ensureUserSeed(config, user.sub);
       result = jsonResponse(200, {
         email: user.email,
         fullName: user.name,

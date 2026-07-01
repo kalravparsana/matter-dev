@@ -1,4 +1,10 @@
-import { GetCommand, PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import {
+  DeleteCommand,
+  GetCommand,
+  PutCommand,
+  QueryCommand,
+  UpdateCommand,
+} from '@aws-sdk/lib-dynamodb';
 import { getDocClient, SK, userPk } from '../lib/dynamodb.js';
 import type { AppConfig } from '../lib/config.js';
 
@@ -81,6 +87,21 @@ export interface MatterConfig {
   editedBy: string;
 }
 
+/** Demo records written by older ensureUserSeed versions — safe to delete once per user. */
+const LEGACY_DEMO_INTEGRATION_IDS = new Set(['int-1', 'int-2', 'int-3']);
+const LEGACY_DEMO_SIGNAL_IDS = [
+  'sig-1',
+  'sig-2',
+  'sig-3',
+  'sig-4',
+  'sig-5',
+  'sig-6',
+  'sig-7',
+];
+const LEGACY_DEMO_OUTPUT_IDS = ['out-1', 'out-2', 'out-3', 'out-4'];
+const LEGACY_DEMO_TRIGGER_IDS = ['trg-1', 'trg-2', 'trg-3', 'trg-4'];
+const LEGACY_DEMO_AGENT_IDS = ['agent-1', 'agent-2'];
+
 const DEFAULT_MATTER: MatterConfig = {
   prompt: `You are the Matter agent. Surface only what needs human attention today.
 
@@ -93,13 +114,80 @@ Deprioritize FYI threads, self-resolved alerts, and scheduling without decisions
   editedBy: 'System',
 };
 
+async function deleteUserItem(
+  config: AppConfig,
+  pk: string,
+  sk: string,
+): Promise<void> {
+  const doc = getDocClient();
+  await doc.send(
+    new DeleteCommand({
+      TableName: config.tableName,
+      Key: { PK: pk, SK: sk },
+    }),
+  );
+}
+
+/**
+ * Removes demo Slack/Gmail/Granola seed rows for accounts created before signup
+ * stopped auto-provisioning integrations.
+ */
+export async function purgeLegacyDemoSeedIfNeeded(
+  config: AppConfig,
+  userSub: string,
+): Promise<void> {
+  const doc = getDocClient();
+  const pk = userPk(userSub);
+  const profileResult = await doc.send(
+    new GetCommand({ TableName: config.tableName, Key: { PK: pk, SK: SK.profile } }),
+  );
+  const profile = profileResult.Item;
+  if (!profile?.seeded || profile.demoPurged === true) return;
+
+  const integrations = await queryByPrefix<IntegrationRecord>(config, userSub, 'INTEGRATION#');
+  const hasLegacyDemoIntegrations = integrations.some((item) =>
+    LEGACY_DEMO_INTEGRATION_IDS.has(item.id),
+  );
+  if (!hasLegacyDemoIntegrations) return;
+
+  for (const integration of integrations) {
+    if (!LEGACY_DEMO_INTEGRATION_IDS.has(integration.id)) continue;
+    await deleteUserItem(config, pk, SK.integration(integration.type));
+  }
+
+  for (const signalId of LEGACY_DEMO_SIGNAL_IDS) {
+    await deleteUserItem(config, pk, SK.signal(signalId));
+  }
+  for (const outputId of LEGACY_DEMO_OUTPUT_IDS) {
+    await deleteUserItem(config, pk, SK.output(outputId));
+  }
+  for (const triggerId of LEGACY_DEMO_TRIGGER_IDS) {
+    await deleteUserItem(config, pk, SK.trigger(triggerId));
+  }
+  for (const agentId of LEGACY_DEMO_AGENT_IDS) {
+    await deleteUserItem(config, pk, SK.agent(agentId));
+  }
+
+  await doc.send(
+    new UpdateCommand({
+      TableName: config.tableName,
+      Key: { PK: pk, SK: SK.profile },
+      UpdateExpression: 'SET demoPurged = :demoPurged',
+      ExpressionAttributeValues: { ':demoPurged': true },
+    }),
+  );
+}
+
 export async function ensureUserSeed(config: AppConfig, userSub: string): Promise<void> {
   const doc = getDocClient();
   const pk = userPk(userSub);
   const existing = await doc.send(
     new GetCommand({ TableName: config.tableName, Key: { PK: pk, SK: SK.profile } }),
   );
-  if (existing.Item) return;
+  if (existing.Item) {
+    await purgeLegacyDemoSeedIfNeeded(config, userSub);
+    return;
+  }
 
   const writes = [
     { PK: pk, SK: SK.profile, entityType: 'profile', seeded: true },

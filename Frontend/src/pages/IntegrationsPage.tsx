@@ -15,7 +15,7 @@ import emptyInputsIllustration from '@/assets/illustrations/empty-inputs.svg';
 type FilterStatus = 'all' | 'connected' | 'syncing' | 'error';
 
 export default function IntegrationsPage() {
-  const { integrations } = useIntegrations();
+  const { integrations, loading, error, refresh } = useIntegrations();
   const { triggers } = useInputTriggers();
   const { agents } = useOutputAgents();
   const [filter, setFilter] = useState<FilterStatus>('all');
@@ -25,6 +25,7 @@ export default function IntegrationsPage() {
   );
 
   const connectedTypes = new Set(integrations.map((i) => i.type));
+  const hasConnections = integrations.length > 0;
 
   const catalog = platformCatalog.map((platform) => {
     const connection = integrations.find((i) => i.type === platform.type);
@@ -80,8 +81,32 @@ export default function IntegrationsPage() {
         ))}
       </div>
 
-      {filtered.length === 0 ? (
+      {error && (
+        <p
+          className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 font-sans text-xs text-destructive"
+          role="alert"
+        >
+          {error}
+        </p>
+      )}
+
+      {loading ? (
+        <div
+          className="flex flex-col items-center rounded-xl border border-border bg-surface px-6 py-12 text-center"
+          role="status"
+          aria-live="polite"
+          aria-label="Loading integrations"
+        >
+          <p className="font-sans text-sm text-muted-foreground">Loading integrations…</p>
+        </div>
+      ) : !hasConnections ? (
         <EmptyIntegrationsState onConnect={() => openConnect()} />
+      ) : filtered.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border bg-surface px-6 py-10 text-center">
+          <p className="font-sans text-sm text-muted-foreground">
+            No integrations match this filter.
+          </p>
+        </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((item) =>
@@ -126,6 +151,7 @@ export default function IntegrationsPage() {
             setShowConnect(false);
             setConnectTarget(null);
           }}
+          onConnected={() => void refresh()}
         />
       )}
     </div>
@@ -260,10 +286,12 @@ function EmptyIntegrationsState({ onConnect }: { onConnect: () => void }) {
 
 function ConnectModal({
   onClose,
+  onConnected,
   initialType,
   connectedTypes,
 }: {
   onClose: () => void;
+  onConnected: () => void;
   initialType: CoreIntegrationType | null;
   connectedTypes: Set<CoreIntegrationType>;
 }) {
@@ -301,6 +329,7 @@ function ConnectModal({
       setError(result.error);
       return;
     }
+    onConnected();
     onClose();
   };
 

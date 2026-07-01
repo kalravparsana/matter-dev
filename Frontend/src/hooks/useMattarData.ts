@@ -91,18 +91,32 @@ export function useTodayData(pollIntervalMs = 5000): TodayData {
 export function useIntegrations() {
   const [integrations, setIntegrations] = useState<Integration[]>(apiMode ? [] : mockIntegrations);
   const [loading, setLoading] = useState(apiMode);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const refresh = useCallback(async () => {
     if (!apiMode) {
       setLoading(false);
       return;
     }
-    apiFetch<Integration[]>('/api/v1/integrations')
-      .then(setIntegrations)
-      .finally(() => setLoading(false));
+
+    setLoading(true);
+    try {
+      const data = await apiFetch<Integration[]>('/api/v1/integrations');
+      setIntegrations(data);
+      setError(null);
+    } catch (err) {
+      setIntegrations([]);
+      setError(err instanceof Error ? err.message : 'Failed to load integrations');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  return { integrations, loading };
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  return { integrations, loading, error, refresh };
 }
 
 export function useInputTriggers() {
