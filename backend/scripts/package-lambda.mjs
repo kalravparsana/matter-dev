@@ -1,5 +1,5 @@
-import { cpSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { execSync } from 'node:child_process';
+import { cpSync, createWriteStream, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import archiver from 'archiver';
 
 const staging = 'dist/lambda-package';
 rmSync(staging, { recursive: true, force: true });
@@ -12,7 +12,18 @@ writeFileSync(
   JSON.stringify({ type: 'module' }, null, 2),
 );
 
-rmSync('dist-lambda.zip', { force: true });
-execSync(`cd ${staging} && zip -r ../dist-lambda.zip .`, { stdio: 'inherit' });
+const zipPath = 'dist-lambda.zip';
+rmSync(zipPath, { force: true });
+
+await new Promise((resolve, reject) => {
+  const output = createWriteStream(zipPath);
+  const archive = archiver('zip', { zlib: { level: 9 } });
+
+  output.on('close', resolve);
+  archive.on('error', reject);
+  archive.pipe(output);
+  archive.directory(staging, false);
+  archive.finalize();
+});
 
 console.log('Created dist-lambda.zip');
