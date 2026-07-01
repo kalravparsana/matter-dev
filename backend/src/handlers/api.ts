@@ -11,8 +11,8 @@ import {
   extractBearerToken,
   verifyCognitoToken,
 } from '../lib/cognito.js';
-import { AppError, toErrorResponse } from '../lib/errors.js';
-import { corsHeaders, jsonResponse, noContentResponse, withCors } from '../lib/response.js';
+import { AppError, isAppError, toErrorResponse } from '../lib/errors.js';
+import { corsHeaders, jsonResponse, noContentResponse, redirectResponse, withCors } from '../lib/response.js';
 import { verifySlackRequestSignature } from '../lib/slack.js';
 import {
   ALLOWED_WORKSPACE_NAME,
@@ -21,6 +21,9 @@ import {
 import {
   buildGmailAuthorizeUrl,
   buildSlackAuthorizeUrl,
+  completeGmailOAuth,
+  completeSlackOAuth,
+  getIntegrationCallbackRedirect,
   getMatterConfig,
   getMetrics,
   listAgents,
@@ -29,6 +32,7 @@ import {
   listSignals,
   listTriggers,
   ensureUserSeed,
+  parseIntegrationOAuthState,
   patchMatterConfig,
   patchTrigger,
   storeGranolaApiKey,
@@ -82,6 +86,49 @@ function extractParam(path: string, pattern: string, name: string): string | nul
   if (!match) return null;
   const idx = names.indexOf(name);
   return idx >= 0 ? match[idx + 1] : null;
+}
+
+async function handleIntegrationOAuthCallback(
+  event: APIGatewayProxyEventV2,
+  config: ReturnType<typeof loadConfig>,
+  expectedType: 'slack' | 'gmail',
+): Promise<APIGatewayProxyResultV2> {
+  const oauthError = event.queryStringParameters?.error;
+  if (oauthError) {
+    return redirectResponse(
+      getIntegrationCallbackRedirect(config, expectedType, 'error', oauthError),
+    );
+  }
+
+  const code = event.queryStringParameters?.code;
+  const state = event.queryStringParameters?.state;
+
+  try {
+    if (!code) throw new AppError('OAuth was cancelled', 400, 'MISSING_CODE');
+    if (!state) throw new AppError('Missing OAuth state', 400, 'MISSING_STATE');
+
+    const parsed = parseIntegrationOAuthState(state);
+    if (parsed.type !== expectedType) {
+      throw new AppError('OAuth state does not match integration', 400, 'INVALID_STATE');
+    }
+
+    if (expectedType === 'slack') {
+      await completeSlackOAuth(config, code, parsed.userSub);
+    } else {
+      await completeGmailOAuth(config, code, parsed.userSub);
+    }
+
+    return redirectResponse(getIntegrationCallbackRedirect(config, expectedType, 'success'));
+  } catch (err) {
+    const message = isAppError(err)
+      ? err.message
+      : err instanceof Error
+        ? err.message
+        : 'Connection failed';
+    return redirectResponse(
+      getIntegrationCallbackRedirect(config, expectedType, 'error', message),
+    );
+  }
 }
 
 export const handler: APIGatewayProxyHandlerV2 = async (
@@ -154,6 +201,10 @@ export const handler: APIGatewayProxyHandlerV2 = async (
       const body = z.object({ apiKey: z.string().min(8) }).parse(parseBody(event));
       const integration = await storeGranolaApiKey(config, user.sub, body.apiKey);
       result = jsonResponse(200, integration);
+    } else if (matchPath(method, path, '/api/v1/oauth/slack/callback', 'GET')) {
+      result = await handleIntegrationOAuthCallback(event, config, 'slack');
+    } else if (matchPath(method, path, '/api/v1/oauth/gmail/callback', 'GET')) {
+      result = await handleIntegrationOAuthCallback(event, config, 'gmail');
     } else if (matchPath(method, path, '/api/v1/signals', 'GET')) {
       const user = await requireUser(event, config);
       result = jsonResponse(200, await listSignals(config, user.sub));

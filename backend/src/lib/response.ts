@@ -56,3 +56,13 @@ export function noContentResponse(
     body: '',
   };
 }
+
+export function redirectResponse(location: string): APIGatewayProxyResultV2 {
+  return {
+    statusCode: 302,
+    headers: {
+      Location: location,
+    },
+    body: '',
+  };
+}
