@@ -110,6 +110,14 @@ export const insightMetrics: InsightMetrics = {
   avgResponseMin: 4.2,
 };
 
+export const emptyInsightMetrics: InsightMetrics = {
+  signalsIn: 0,
+  matterFiltered: 0,
+  actionsRouted: 0,
+  pendingReview: 0,
+  avgResponseMin: 0,
+};
+
 export const inputSignals: InputSignal[] = [
   {
     id: 'sig-1',
@@ -415,7 +423,7 @@ export const platformCatalog: PlatformCatalogEntry[] = [
   },
   {
     type: 'gmail',
-    description: 'Inbox threads and replies for priya@york.ie',
+    description: 'Inbox threads and replies from your connected account',
   },
   {
     type: 'granola',

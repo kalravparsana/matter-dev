@@ -3,6 +3,7 @@ import {
   inputSignals as mockSignals,
   routedOutputs as mockOutputs,
   insightMetrics as mockMetrics,
+  emptyInsightMetrics,
   integrations as mockIntegrations,
   inputTriggers as mockTriggers,
   outputAgents as mockAgents,
@@ -19,6 +20,8 @@ import type {
 } from '@/data/mattar';
 import { apiFetch, isApiConfigured } from '@/lib/api';
 
+const apiMode = isApiConfigured();
+
 interface TodayData {
   signals: InputSignal[];
   outputs: OutputAction[];
@@ -30,16 +33,20 @@ interface TodayData {
 }
 
 export function useTodayData(pollIntervalMs = 5000): TodayData {
-  const [signals, setSignals] = useState<InputSignal[]>(mockSignals);
-  const [outputs, setOutputs] = useState<OutputAction[]>(mockOutputs);
-  const [metrics, setMetrics] = useState<InsightMetrics>(mockMetrics);
-  const [integrations, setIntegrations] = useState<Integration[]>(mockIntegrations);
-  const [loading, setLoading] = useState(isApiConfigured());
+  const [signals, setSignals] = useState<InputSignal[]>(apiMode ? [] : mockSignals);
+  const [outputs, setOutputs] = useState<OutputAction[]>(apiMode ? [] : mockOutputs);
+  const [metrics, setMetrics] = useState<InsightMetrics>(
+    apiMode ? emptyInsightMetrics : mockMetrics,
+  );
+  const [integrations, setIntegrations] = useState<Integration[]>(
+    apiMode ? [] : mockIntegrations,
+  );
+  const [loading, setLoading] = useState(apiMode);
   const [error, setError] = useState<string | null>(null);
   const mounted = useRef(true);
 
   const refresh = useCallback(async () => {
-    if (!isApiConfigured()) {
+    if (!apiMode) {
       setLoading(false);
       return;
     }
@@ -69,7 +76,7 @@ export function useTodayData(pollIntervalMs = 5000): TodayData {
   useEffect(() => {
     mounted.current = true;
     void refresh();
-    if (!isApiConfigured()) return undefined;
+    if (!apiMode) return undefined;
 
     const id = window.setInterval(() => void refresh(), pollIntervalMs);
     return () => {
@@ -82,11 +89,11 @@ export function useTodayData(pollIntervalMs = 5000): TodayData {
 }
 
 export function useIntegrations() {
-  const [integrations, setIntegrations] = useState<Integration[]>(mockIntegrations);
-  const [loading, setLoading] = useState(isApiConfigured());
+  const [integrations, setIntegrations] = useState<Integration[]>(apiMode ? [] : mockIntegrations);
+  const [loading, setLoading] = useState(apiMode);
 
   useEffect(() => {
-    if (!isApiConfigured()) {
+    if (!apiMode) {
       setLoading(false);
       return;
     }
@@ -99,11 +106,11 @@ export function useIntegrations() {
 }
 
 export function useInputTriggers() {
-  const [triggers, setTriggers] = useState<InputTrigger[]>(mockTriggers);
+  const [triggers, setTriggers] = useState<InputTrigger[]>(apiMode ? [] : mockTriggers);
   const { integrations } = useIntegrations();
 
   useEffect(() => {
-    if (!isApiConfigured()) return;
+    if (!apiMode) return;
     apiFetch<InputTrigger[]>('/api/v1/input-triggers').then(setTriggers);
   }, []);
 
@@ -111,7 +118,7 @@ export function useInputTriggers() {
     setTriggers((prev) =>
       prev.map((t) => (t.id === id ? { ...t, enabled: !t.enabled } : t)),
     );
-    if (isApiConfigured()) {
+    if (apiMode) {
       const current = triggers.find((t) => t.id === id);
       if (current) {
         try {
@@ -134,11 +141,11 @@ export function useInputTriggers() {
 }
 
 export function useOutputAgents() {
-  const [agents, setAgents] = useState<OutputAgent[]>(mockAgents);
+  const [agents, setAgents] = useState<OutputAgent[]>(apiMode ? [] : mockAgents);
   const { integrations } = useIntegrations();
 
   useEffect(() => {
-    if (!isApiConfigured()) return;
+    if (!apiMode) return;
     apiFetch<OutputAgent[]>('/api/v1/output-agents').then(setAgents);
   }, []);
 
@@ -150,14 +157,14 @@ export function useMatterConfig() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (!isApiConfigured()) return;
+    if (!apiMode) return;
     apiFetch<MatterConfig>('/api/v1/matter-config').then(setConfig);
   }, []);
 
   const save = useCallback(async (patch: Partial<MatterConfig>) => {
     setSaving(true);
     try {
-      if (isApiConfigured()) {
+      if (apiMode) {
         const updated = await apiFetch<MatterConfig>('/api/v1/matter-config', {
           method: 'PATCH',
           body: JSON.stringify(patch),

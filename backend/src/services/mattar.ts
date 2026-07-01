@@ -81,214 +81,16 @@ export interface MatterConfig {
   editedBy: string;
 }
 
-const DEFAULT_INTEGRATIONS: IntegrationRecord[] = [
-  {
-    id: 'int-1',
-    name: 'Slack',
-    type: 'slack',
-    status: 'connected',
-    lastSync: '2 min ago',
-    signalsToday: 28,
-    channel: 'York HQ workspace',
-  },
-  {
-    id: 'int-2',
-    name: 'Gmail',
-    type: 'gmail',
-    status: 'connected',
-    lastSync: '4 min ago',
-    signalsToday: 14,
-    account: 'priya@york.ie',
-  },
-  {
-    id: 'int-3',
-    name: 'Granola',
-    type: 'granola',
-    status: 'syncing',
-    lastSync: 'Syncing…',
-    signalsToday: 5,
-    account: 'Meeting notes',
-  },
-];
-
-const DEFAULT_SIGNALS: InputSignal[] = [
-  {
-    id: 'sig-1',
-    source: '#product-standup',
-    integration: 'slack',
-    preview: 'Blocked on API rate limits — need eng decision by noon',
-    receivedAt: '8:14 AM',
-    priority: 'hot',
-    matterScore: 94,
-  },
-  {
-    id: 'sig-2',
-    source: 'sarah.chen@york.ie',
-    integration: 'gmail',
-    preview: 'Re: Q2 contract renewal — legal flagged clause 7.2',
-    receivedAt: '7:52 AM',
-    priority: 'hot',
-    matterScore: 91,
-  },
-  {
-    id: 'sig-3',
-    source: 'Investor sync notes',
-    integration: 'granola',
-    preview: 'Action item: send updated cap table before Thursday call',
-    receivedAt: '7:30 AM',
-    priority: 'active',
-    matterScore: 78,
-  },
-  {
-    id: 'sig-4',
-    source: '#customer-success',
-    integration: 'slack',
-    preview: 'Acme Corp escalation — churn risk, wants callback today',
-    receivedAt: '7:18 AM',
-    priority: 'hot',
-    matterScore: 88,
-  },
-  {
-    id: 'sig-5',
-    source: 'partnerships@cloudstack.com',
-    integration: 'gmail',
-    preview: 'Partnership proposal follow-up — decision needed this week',
-    receivedAt: '6:45 AM',
-    priority: 'active',
-    matterScore: 72,
-  },
-  {
-    id: 'sig-6',
-    source: 'Weekly planning',
-    integration: 'granola',
-    preview: 'Hiring: finalize offer for senior backend role',
-    receivedAt: 'Yesterday',
-    priority: 'queued',
-    matterScore: 65,
-  },
-  {
-    id: 'sig-7',
-    source: '#eng-alerts',
-    integration: 'slack',
-    preview: 'Deploy pipeline failed on staging — non-blocking',
-    receivedAt: 'Yesterday',
-    priority: 'queued',
-    matterScore: 41,
-  },
-];
-
-const DEFAULT_OUTPUTS: OutputAction[] = [
-  {
-    id: 'out-1',
-    name: 'Reply to Sarah — clause review',
-    integration: 'gmail',
-    kind: 'gmail-send-reply',
-    lastRun: '8:31 AM',
-    status: 'running',
-    todayCount: 3,
-  },
-  {
-    id: 'out-2',
-    name: 'Alert #eng-leads — rate limit',
-    integration: 'slack',
-    kind: 'slack-post-alert',
-    lastRun: '8:22 AM',
-    status: 'ready',
-    todayCount: 2,
-  },
-  {
-    id: 'out-3',
-    name: 'Cap table action item pushed',
-    integration: 'granola',
-    kind: 'granola-push-action-item',
-    lastRun: '8:15 AM',
-    status: 'ready',
-    todayCount: 1,
-  },
-  {
-    id: 'out-4',
-    name: 'Cap table reminder',
-    integration: 'gmail',
-    kind: 'gmail-send-reply',
-    lastRun: '7:45 AM',
-    status: 'ready',
-    todayCount: 2,
-  },
-];
-
-const DEFAULT_TRIGGERS: InputTrigger[] = [
-  {
-    id: 'trg-1',
-    integration: 'slack',
-    kind: 'slack-new-message',
-    label: 'New message',
-    description: 'Any message in monitored channels',
-    enabled: true,
-    eventsToday: 18,
-    lastEvent: '8:14 AM',
-  },
-  {
-    id: 'trg-2',
-    integration: 'slack',
-    kind: 'slack-new-mention',
-    label: 'New @mention',
-    description: 'Direct @mentions in watched threads',
-    enabled: true,
-    eventsToday: 6,
-    lastEvent: '7:48 AM',
-  },
-  {
-    id: 'trg-3',
-    integration: 'gmail',
-    kind: 'gmail-new-email',
-    label: 'New email',
-    description: 'Inbound messages excluding promotions',
-    enabled: true,
-    eventsToday: 11,
-    lastEvent: '7:52 AM',
-  },
-  {
-    id: 'trg-4',
-    integration: 'granola',
-    kind: 'granola-new-meeting',
-    label: 'New meeting notes',
-    description: 'Notes synced after meetings',
-    enabled: true,
-    eventsToday: 3,
-    lastEvent: '7:30 AM',
-  },
-];
-
-const DEFAULT_AGENTS: OutputAgent[] = [
-  {
-    id: 'agent-1',
-    integration: 'gmail',
-    kind: 'gmail-send-reply',
-    name: 'Email reply sent',
-    description: 'Draft and send Gmail replies on routed signals',
-    lastRun: '8:31 AM',
-    status: 'running',
-    todayCount: 5,
-  },
-  {
-    id: 'agent-2',
-    integration: 'slack',
-    kind: 'slack-post-alert',
-    name: 'Channel alert posted',
-    description: 'Push priority alerts to channels',
-    lastRun: '8:18 AM',
-    status: 'running',
-    todayCount: 2,
-  },
-];
-
 const DEFAULT_MATTER: MatterConfig = {
-  prompt: `You are the Matter agent for York's ops team. Surface only what needs human attention today.`,
+  prompt: `You are the Matter agent. Surface only what needs human attention today.
+
+Prioritize revenue risk, team blockers with deadlines, and customer escalations.
+Deprioritize FYI threads, self-resolved alerts, and scheduling without decisions.`,
   temperature: 0.3,
   priorityThreshold: 70,
   autoRoute: true,
-  lastEdited: 'Jun 18, 2026',
-  editedBy: 'Priya Natarajan',
+  lastEdited: 'Default',
+  editedBy: 'System',
 };
 
 export async function ensureUserSeed(config: AppConfig, userSub: string): Promise<void> {
@@ -301,40 +103,6 @@ export async function ensureUserSeed(config: AppConfig, userSub: string): Promis
 
   const writes = [
     { PK: pk, SK: SK.profile, entityType: 'profile', seeded: true },
-    ...DEFAULT_INTEGRATIONS.map((i) => ({
-      PK: pk,
-      SK: SK.integration(i.type),
-      entityType: 'integration',
-      GSI1PK: pk,
-      GSI1SK: SK.integration(i.type),
-      ...i,
-    })),
-    ...DEFAULT_SIGNALS.map((s, idx) => ({
-      PK: pk,
-      SK: SK.signal(s.id),
-      entityType: 'signal',
-      GSI1PK: pk,
-      GSI1SK: `SIGNAL#${String(idx).padStart(4, '0')}`,
-      ...s,
-    })),
-    ...DEFAULT_OUTPUTS.map((o) => ({
-      PK: pk,
-      SK: SK.output(o.id),
-      entityType: 'output',
-      ...o,
-    })),
-    ...DEFAULT_TRIGGERS.map((t) => ({
-      PK: pk,
-      SK: SK.trigger(t.id),
-      entityType: 'trigger',
-      ...t,
-    })),
-    ...DEFAULT_AGENTS.map((a) => ({
-      PK: pk,
-      SK: SK.agent(a.id),
-      entityType: 'agent',
-      ...a,
-    })),
     {
       PK: pk,
       SK: SK.matterConfig,
@@ -587,12 +355,12 @@ export async function storeGranolaApiKey(
   const doc = getDocClient();
   const pk = userPk(userSub);
   const integration: IntegrationRecord = {
-    id: 'int-3',
+    id: `int-granola-${userSub.slice(0, 8)}`,
     name: 'Granola',
     type: 'granola',
     status: 'syncing',
     lastSync: 'Syncing…',
-    signalsToday: 5,
+    signalsToday: 0,
     account: 'Meeting notes',
   };
 

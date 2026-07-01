@@ -5,7 +5,7 @@ import {
   platformCatalog,
 } from '@/data/mattar';
 import type { CoreIntegrationType, Integration } from '@/data/mattar';
-import { useIntegrations } from '@/hooks/useMattarData';
+import { useIntegrations, useInputTriggers, useOutputAgents } from '@/hooks/useMattarData';
 import { saveGranolaApiKey, startIntegrationOAuth } from '@/lib/cognitoAuth';
 import { isApiConfigured } from '@/lib/api';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -16,6 +16,8 @@ type FilterStatus = 'all' | 'connected' | 'syncing' | 'error';
 
 export default function IntegrationsPage() {
   const { integrations } = useIntegrations();
+  const { triggers } = useInputTriggers();
+  const { agents } = useOutputAgents();
   const [filter, setFilter] = useState<FilterStatus>('all');
   const [showConnect, setShowConnect] = useState(false);
   const [connectTarget, setConnectTarget] = useState<CoreIntegrationType | null>(
@@ -87,8 +89,8 @@ export default function IntegrationsPage() {
               <ConnectedPlatformCard
                 key={item.type}
                 integration={item.connection}
-                inputCount={3}
-                outputCount={2}
+                inputCount={triggers.filter((t) => t.integration === item.type).length}
+                outputCount={agents.filter((a) => a.integration === item.type).length}
               />
             ) : (
               <AvailablePlatformCard
