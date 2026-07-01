@@ -12,6 +12,7 @@ import {
   verifyCognitoToken,
 } from '../lib/cognito.js';
 import { AppError, isAppError, toErrorResponse } from '../lib/errors.js';
+import { getHttpPath } from '../lib/request.js';
 import { corsHeaders, jsonResponse, noContentResponse, redirectResponse, withCors } from '../lib/response.js';
 import { verifySlackRequestSignature } from '../lib/slack.js';
 import {
@@ -137,7 +138,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (
   const config = loadConfig();
   const origin = getOrigin(event);
   const method = event.requestContext.http.method;
-  const path = event.rawPath;
+  const path = getHttpPath(event);
 
   if (method === 'OPTIONS') {
     return noContentResponse(origin, config.allowedOrigins);
@@ -205,6 +206,13 @@ export const handler: APIGatewayProxyHandlerV2 = async (
       result = await handleIntegrationOAuthCallback(event, config, 'slack');
     } else if (matchPath(method, path, '/api/v1/oauth/gmail/callback', 'GET')) {
       result = await handleIntegrationOAuthCallback(event, config, 'gmail');
+    } else if (matchPath(method, path, '/api/v1/integrations/oauth/callback', 'GET')) {
+      const state = event.queryStringParameters?.state;
+      if (!state) {
+        throw new AppError('Missing OAuth state', 400, 'MISSING_STATE');
+      }
+      const parsed = parseIntegrationOAuthState(state);
+      result = await handleIntegrationOAuthCallback(event, config, parsed.type);
     } else if (matchPath(method, path, '/api/v1/signals', 'GET')) {
       const user = await requireUser(event, config);
       result = jsonResponse(200, await listSignals(config, user.sub));

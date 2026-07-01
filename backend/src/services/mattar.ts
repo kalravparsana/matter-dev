@@ -511,12 +511,12 @@ export function buildGmailAuthorizeUrl(config: AppConfig, state: string): string
 
 export function parseIntegrationOAuthState(
   state: string,
-): { userSub: string; type: CoreIntegrationType } {
+): { userSub: string; type: 'slack' | 'gmail' } {
   const parts = state.split(':');
   if (parts.length < 3) {
     throw new Error('Invalid OAuth state');
   }
-  const type = parts[1] as CoreIntegrationType;
+  const type = parts[1] as 'slack' | 'gmail';
   if (type !== 'slack' && type !== 'gmail') {
     throw new Error('Invalid integration type in OAuth state');
   }
