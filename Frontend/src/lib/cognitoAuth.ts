@@ -60,31 +60,38 @@ export async function completeOAuthCallback(code: string): Promise<SignInResult>
     return { ok: false, error: 'API is not configured' };
   }
 
-  const response = await fetch(
-    `${base.replace(/\/$/, '')}/api/v1/auth/callback?code=${encodeURIComponent(code)}`,
-  );
+  try {
+    const response = await fetch(
+      `${base.replace(/\/$/, '')}/api/v1/auth/callback?code=${encodeURIComponent(code)}`,
+    );
 
-  if (!response.ok) {
-    const body = (await response.json().catch(() => ({}))) as { error?: string };
-    return { ok: false, error: body.error ?? 'Sign-in failed' };
+    if (!response.ok) {
+      const body = (await response.json().catch(() => ({}))) as { error?: string };
+      return { ok: false, error: body.error ?? 'Sign-in failed' };
+    }
+
+    const tokens = (await response.json()) as StoredTokens;
+    persistTokens(tokens);
+
+    const profile = await apiFetch<AuthSession & { provider?: string }>('/api/v1/auth/session');
+    const session: AuthSession = {
+      email: profile.email,
+      fullName: profile.fullName,
+      firstName: profile.firstName,
+      initials: profile.initials,
+      workspace: profile.workspace,
+      role: profile.role,
+      loggedInAt: new Date().toISOString(),
+      provider: 'google',
+    };
+    persistSession(session);
+    return { ok: true, session };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : 'Sign-in failed',
+    };
   }
-
-  const tokens = (await response.json()) as StoredTokens;
-  persistTokens(tokens);
-
-  const profile = await apiFetch<AuthSession & { provider?: string }>('/api/v1/auth/session');
-  const session: AuthSession = {
-    email: profile.email,
-    fullName: profile.fullName,
-    firstName: profile.firstName,
-    initials: profile.initials,
-    workspace: profile.workspace,
-    role: profile.role,
-    loggedInAt: new Date().toISOString(),
-    provider: 'google',
-  };
-  persistSession(session);
-  return { ok: true, session };
 }
 
 export async function startIntegrationOAuth(

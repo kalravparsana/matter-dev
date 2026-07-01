@@ -212,6 +212,8 @@ Resources:
           COGNITO_DOMAIN: !Sub mattar-${EnvironmentName}-${AWS::AccountId}.auth.${AWS::Region}.amazoncognito.com
           OAUTH_REDIRECT_URI: !Ref OAuthRedirectUri
           ALLOWED_ORIGINS: !Ref AllowedOrigins
+          ALLOWED_WORKSPACE_DOMAIN: york.ie
+          ALLOWED_WORKSPACE_NAME: York
           API_BASE_URL: !Sub https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com
           GOOGLE_OAUTH_CLIENT_ID: !Ref GoogleClientId
           GOOGLE_OAUTH_CLIENT_SECRET: !Ref GoogleClientSecret

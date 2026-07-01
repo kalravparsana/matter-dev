@@ -105,6 +105,14 @@ export const handler: APIGatewayProxyHandlerV2 = async (
       const code = event.queryStringParameters?.code;
       if (!code) throw new AppError('Sign-in was cancelled', 400, 'MISSING_CODE');
       const tokens = await exchangeCodeForTokens(code, config);
+      const user = await verifyCognitoToken(tokens.idToken, config);
+      if (!isAllowedWorkspaceEmail(user.email)) {
+        throw new AppError(
+          `Sign in with your ${ALLOWED_WORKSPACE_NAME} Google Workspace account to continue`,
+          403,
+          'FORBIDDEN_DOMAIN',
+        );
+      }
       result = jsonResponse(200, tokens);
     } else if (matchPath(method, path, '/api/v1/auth/session', 'GET')) {
       const user = await requireUser(event, config);
