@@ -1,5 +1,5 @@
 import { workspaceUser } from '@/data/mattar';
-import { ALLOWED_WORKSPACE_DOMAIN, ALLOWED_WORKSPACE_NAME } from '@/lib/workspace';
+import { ALLOWED_WORKSPACE_NAME, isAllowedWorkspaceEmail } from '@/lib/workspace';
 
 export const AUTH_STORAGE_KEY = 'mattar_session';
 
@@ -70,14 +70,19 @@ export function clearStoredSession(): void {
 export function createSessionFromGoogleProfile(
   profile: GoogleProfile,
 ): { ok: true; session: AuthSession } | { ok: false; error: string } {
+  return buildAuthSessionFromClaims(profile);
+}
+
+export function buildAuthSessionFromClaims(
+  profile: GoogleProfile,
+): { ok: true; session: AuthSession } | { ok: false; error: string } {
   const email = profile.email.trim().toLowerCase();
 
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return { ok: false, error: 'Google did not return a valid email address' };
   }
 
-  const domain = email.split('@')[1];
-  if (domain !== ALLOWED_WORKSPACE_DOMAIN) {
+  if (!isAllowedWorkspaceEmail(email)) {
     return {
       ok: false,
       error: `Sign in with your ${ALLOWED_WORKSPACE_NAME} Google Workspace account to continue`,

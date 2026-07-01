@@ -6,6 +6,7 @@ import {
   type AuthSession,
   type StoredTokens,
 } from '@/lib/api';
+import { buildAuthSessionFromIdToken } from '@/lib/idToken';
 
 function getCognitoDomain(): string | undefined {
   return import.meta.env.VITE_COGNITO_DOMAIN?.trim() || undefined;
@@ -73,19 +74,13 @@ export async function completeOAuthCallback(code: string): Promise<SignInResult>
     const tokens = (await response.json()) as StoredTokens;
     persistTokens(tokens);
 
-    const profile = await apiFetch<AuthSession & { provider?: string }>('/api/v1/auth/session');
-    const session: AuthSession = {
-      email: profile.email,
-      fullName: profile.fullName,
-      firstName: profile.firstName,
-      initials: profile.initials,
-      workspace: profile.workspace,
-      role: profile.role,
-      loggedInAt: new Date().toISOString(),
-      provider: 'google',
-    };
-    persistSession(session);
-    return { ok: true, session };
+    const sessionResult = buildAuthSessionFromIdToken(tokens.idToken);
+    if (!sessionResult.ok) {
+      return { ok: false, error: sessionResult.error };
+    }
+
+    persistSession(sessionResult.session);
+    return { ok: true, session: sessionResult.session };
   } catch (err) {
     return {
       ok: false,

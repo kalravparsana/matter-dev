@@ -8,15 +8,16 @@ import {
   type ReactNode,
 } from 'react';
 import {
-  apiFetch,
   clearStoredSession,
   isApiConfigured,
   persistSession,
+  readStoredSession,
   readStoredTokens,
   type AuthSession,
   type AuthUser,
 } from '@/lib/api';
 import { signInWithGoogle } from '@/lib/cognitoAuth';
+import { buildAuthSessionFromIdToken } from '@/lib/idToken';
 
 type LoginResult =
   | { ok: true; pending?: boolean }
@@ -53,25 +54,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      try {
-        const profile = await apiFetch<
-          Omit<AuthSession, 'loggedInAt' | 'provider'> & { provider?: string }
-        >('/api/v1/auth/session');
-        const session: AuthSession = {
-          email: profile.email,
-          fullName: profile.fullName,
-          firstName: profile.firstName,
-          initials: profile.initials,
-          workspace: profile.workspace,
-          role: profile.role,
-          loggedInAt: new Date().toISOString(),
-          provider: 'google',
-        };
-        persistSession(session);
-        if (!cancelled) setSession(session);
-      } catch {
+      const sessionResult = buildAuthSessionFromIdToken(tokens.idToken);
+      if (!sessionResult.ok) {
         clearStoredSession();
+        if (!cancelled) setIsLoading(false);
+        return;
       }
+
+      const existing = readStoredSession();
+      const session: AuthSession = {
+        ...sessionResult.session,
+        loggedInAt: existing?.loggedInAt ?? new Date().toISOString(),
+      };
+      persistSession(session);
+      if (!cancelled) setSession(session);
 
       if (!cancelled) setIsLoading(false);
     };

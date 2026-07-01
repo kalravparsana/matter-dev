@@ -14,13 +14,17 @@ export default function AuthCallbackPage() {
       return;
     }
 
-    void completeOAuthCallback(code).then((result) => {
-      if (!result.ok) {
-        setError(result.error);
-        return;
-      }
-      navigate('/today', { replace: true });
-    });
+    void completeOAuthCallback(code)
+      .then((result) => {
+        if (!result.ok) {
+          setError(result.error);
+          return;
+        }
+        navigate('/today', { replace: true });
+      })
+      .catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : 'Sign-in failed');
+      });
   }, [searchParams, navigate]);
 
   if (error) {
